@@ -17,7 +17,7 @@ func logToFile(_ msg: String) {
 let sharedAppState = AppState()
 
 @main
-struct WhisperAiwithDhruvApp: App {
+struct IndianWhisperApp: App {
 
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -27,6 +27,13 @@ struct WhisperAiwithDhruvApp: App {
                 logToFile("Starting setup...")
                 await sharedAppState.setup()
                 logToFile("Setup done. Model loaded: \(sharedAppState.isModelLoaded)")
+
+                // Show onboarding if first launch
+                if !sharedAppState.hasCompletedOnboarding {
+                    await MainActor.run {
+                        showOnboarding()
+                    }
+                }
             } catch {
                 logToFile("SETUP ERROR: \(error)")
             }
@@ -39,11 +46,36 @@ struct WhisperAiwithDhruvApp: App {
         } label: {
             Image(systemName: sharedAppState.menuBarIconName)
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView()
                 .environment(sharedAppState)
         }
+
+        // Onboarding window
+        Window("Welcome to IndianWhisper", id: "onboarding") {
+            OnboardingView()
+                .environment(sharedAppState)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+    }
+}
+
+/// Show onboarding window
+@MainActor
+private func showOnboarding() {
+    NSApplication.shared.setActivationPolicy(.regular)
+    for window in NSApplication.shared.windows {
+        if window.title.contains("IndianWhisper") || window.title.contains("Welcome") {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+    }
+    // Fallback: open via window group ID
+    if let url = URL(string: "indianwhisper://onboarding") {
+        NSWorkspace.shared.open(url)
     }
 }

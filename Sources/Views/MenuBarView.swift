@@ -1,140 +1,107 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    // Use the global directly — avoid @Environment + @Bindable crash
     private var appState: AppState { sharedAppState }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Status
-            HStack {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(appState.statusText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        // Status
+        Text(appState.statusText)
 
-            Divider()
+        if !appState.lastTranscription.isEmpty {
+            Text(appState.lastTranscription)
+                .lineLimit(3)
+        }
 
-            // Last transcription
-            if !appState.lastTranscription.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Last")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    Text(appState.lastTranscription)
-                        .font(.body)
-                        .lineLimit(4)
-                        .textSelection(.enabled)
-                }
-            }
-
-            Divider()
-
-            // Toggle recording
-            Button {
-                DispatchQueue.main.async { appState.toggleRecording() }
-            } label: {
-                Label(
-                    appState.isRecording ? "Stop Recording" : "Start Recording",
-                    systemImage: appState.isRecording ? "stop.circle.fill" : "record.circle"
-                )
-            }
-            .disabled(!appState.isModelLoaded)
-
-            Divider()
-
-            // Model picker — manual binding, no @Bindable
-            Picker("Model", selection: Binding(
-                get: { appState.selectedModel },
-                set: { newVal in
-                    appState.selectedModel = newVal
-                    Task { await appState.loadModel() }
-                }
-            )) {
-                ForEach(WhisperModelSize.allCases) { model in
-                    Text(model.displayName).tag(model)
-                }
-            }
-
-            // Toggles — manual bindings
-            Toggle("Hindi Mode", isOn: Binding(
-                get: { appState.hindiMode },
-                set: { appState.hindiMode = $0 }
-            ))
-
-            Toggle("Auto-type", isOn: Binding(
-                get: { appState.autoTypeEnabled },
-                set: { appState.autoTypeEnabled = $0 }
-            ))
-
-            // Download progress
-            if appState.isModelDownloading {
-                ProgressView(value: appState.modelDownloadProgress) {
-                    Text("Downloading model...")
-                        .font(.caption)
-                }
-            }
-
-            Divider()
-
-            // Permission warnings
-            if PermissionService.microphoneStatus() != .granted {
-                Label("Mic access needed", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-
-            if !AutoTypeService.isAccessibilityGranted() {
-                Button("Grant Accessibility") {
-                    DispatchQueue.main.async {
-                        AutoTypeService.promptAccessibilityOnce()
-                    }
-                }
+        // Free tier usage
+        if !appState.isPro {
+            Text("\(String(format: "%.0f", appState.freeMinutesRemaining)) min remaining today")
                 .font(.caption)
-            }
+        }
 
-            Divider()
+        Divider()
 
-            // History
-            if !appState.transcriptionHistory.isEmpty {
-                DisclosureGroup("History") {
-                    ForEach(appState.transcriptionHistory.prefix(10)) { entry in
-                        Text(entry.text)
-                            .font(.caption)
-                            .lineLimit(2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        let hotkeyLabel = appState.hotkeyService?.displayString ?? "Cmd + D"
+        Button(appState.isRecording ? "Stop Recording (\(hotkeyLabel))" : "Start Recording (\(hotkeyLabel))") {
+            appState.toggleRecording()
+        }
+        .disabled(!appState.isModelLoaded || appState.isFreeTierExhausted)
+
+        if appState.isFreeTierExhausted {
+            Text("Daily limit reached. Upgrade to Pro!")
+                .foregroundStyle(.red)
                 .font(.caption)
+        }
 
-                Divider()
+        Divider()
+
+        Picker("Model", selection: Binding(
+            get: { appState.selectedModel },
+            set: { newVal in
+                guard newVal.isFree || appState.isPro else { return }
+                appState.selectedModel = newVal
+                Task { await appState.loadModel() }
             }
-
-            HStack {
-                Button("Settings...") {
-                    DispatchQueue.main.async {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        )) {
+            ForEach(WhisperModelSize.allCases) { model in
+                HStack {
+                    Text(model.displayName)
+                    if !model.isFree && !appState.isPro {
+                        Text("(PRO)")
                     }
                 }
-                Spacer()
-                Button("Quit") {
-                    DispatchQueue.main.async {
-                        NSApplication.shared.terminate(nil)
-                    }
+                .tag(model)
+            }
+        }
+
+        Toggle("Hindi Mode", isOn: Binding(
+            get: { appState.hindiMode },
+            set: { appState.hindiMode = $0 }
+        ))
+
+        Toggle("Auto-type", isOn: Binding(
+            get: { appState.autoTypeEnabled },
+            set: { appState.autoTypeEnabled = $0 }
+        ))
+
+        Toggle("LLM Cleanup", isOn: Binding(
+            get: { appState.llmCleanupEnabled },
+            set: { appState.llmCleanupEnabled = $0 }
+        ))
+
+        if appState.llmCleanupEnabled && appState.groqApiKey.isEmpty && appState.openRouterApiKey.isEmpty {
+            Button("Set API Key (Groq/OpenRouter)...") {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+        }
+
+        Divider()
+
+        if !AutoTypeService.isAccessibilityGranted() {
+            Button("Grant Accessibility") {
+                AutoTypeService.promptAccessibilityOnce()
+            }
+        }
+
+        // Pro status
+        if appState.isPro {
+            Text("Pro")
+                .font(.caption)
+        } else {
+            Button("Upgrade to Pro...") {
+                if let url = URL(string: "https://indianwhisper.com") {
+                    NSWorkspace.shared.open(url)
                 }
             }
         }
-        .padding()
-        .frame(width: 300)
-    }
 
-    private var statusColor: Color {
-        if appState.isRecording { return .red }
-        if appState.isProcessing { return .orange }
-        if appState.isModelLoaded { return .green }
-        return .gray
+        Button("Settings...") {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+        .keyboardShortcut(",")
+
+        Button("Quit") {
+            NSApplication.shared.terminate(nil)
+        }
+        .keyboardShortcut("q")
     }
 }

@@ -6,3 +6,6 @@ DerivedData/
 .DS_Store
 *.app
 Package.resolved
+.env
+*.env
+credentials.json

@@ -5,14 +5,18 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Whisper AiwithDhruv needs microphone access for live speech-to-text transcription.</string>
+    <string>IndianWhisper needs microphone access for live speech-to-text transcription. All processing happens locally on your Mac.</string>
     <key>CFBundleName</key>
-    <string>Whisper AiwithDhruv</string>
+    <string>IndianWhisper</string>
     <key>CFBundleIdentifier</key>
-    <string>com.aiwithdhruv.whisper</string>
+    <string>com.indianwhisper.app</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
+    <key>SUFeedURL</key>
+    <string>https://indianwhisper.com/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string></string>
 </dict>
 </plist>
