@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#FF4FC3F7</color>
+    <color name="secondary">#FF80CBC4</color>
+    <color name="background">#FF0F0F23</color>
+    <color name="surface">#FF1A1A2E</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="recording_red">#FFE53935</color>
+    <color name="pro_gold">#FFFFD54F</color>
+</resources>

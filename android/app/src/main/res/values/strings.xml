@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IndianWhisper</string>
+    <string name="tagline">by AiwithDhruv</string>
+    <string name="ime_label">IndianWhisper Voice</string>
+</resources>
