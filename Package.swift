@@ -14,14 +14,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
-        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.6.0"),
+        // Sparkle: add back when distributing DMG with embedded framework
+        // .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.6.0"),
     ],
     targets: [
         .executableTarget(
             name: "IndianWhisper",
             dependencies: [
                 "WhisperKit",
-                "Sparkle",
             ],
             path: "Sources",
             exclude: ["App/Info.plist"]

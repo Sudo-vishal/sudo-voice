@@ -84,7 +84,7 @@ echo "Signing..."
 codesign --force --sign - "$APP_PATH"
 
 echo "Resetting TCC (accessibility)..."
-tccutil reset Accessibility "$BUNDLE_ID"
+tccutil reset Accessibility "$BUNDLE_ID" 2>/dev/null || true
 
 echo "Launching..."
 open "$APP_PATH"

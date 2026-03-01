@@ -27,9 +27,11 @@ final class AudioCaptureService {
     private var lastSilenceThreshold: Float = 0.04
     private var isCurrentlyRecording = false
 
-    // Device change listener
+    // Device change handling
     var onDeviceChanged: (() -> Void)?
     private var deviceChangeListenerID: AudioObjectPropertyListenerBlock?
+    private var reconnectWorkItem: DispatchWorkItem?    // Debounce
+    private var isReconnecting = false                  // Prevent overlapping reconnects
 
     // Watchdog — detect stalled audio engine
     private var lastBufferTime: Date = Date()
@@ -60,10 +62,19 @@ final class AudioCaptureService {
         )
 
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            logToFile("Audio device changed — triggering reconnect")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self?.onDeviceChanged?()
+            guard let self else { return }
+            let deviceName = self.getCurrentInputDeviceName()
+            logToFile("Audio device changed → \(deviceName)")
+
+            // Debounce: cancel previous reconnect, wait 1.5s for device to stabilize
+            self.reconnectWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.isCurrentlyRecording else { return }
+                logToFile("Debounced device change — reconnecting to: \(self.getCurrentInputDeviceName())")
+                self.onDeviceChanged?()
             }
+            self.reconnectWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
         }
         deviceChangeListenerID = listener
 
@@ -76,6 +87,7 @@ final class AudioCaptureService {
     }
 
     private func stopDeviceChangeListener() {
+        reconnectWorkItem?.cancel()
         guard let listener = deviceChangeListenerID else { return }
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
@@ -90,26 +102,106 @@ final class AudioCaptureService {
         )
     }
 
-    /// Restart recording with the same parameters after a device change
+    /// Get the name of the current default input device (for logging)
+    private func getCurrentInputDeviceName() -> String {
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address, 0, nil, &size, &deviceID
+        )
+        guard status == noErr else { return "Unknown (error \(status))" }
+
+        var nameAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var name: CFString = "" as CFString
+        var nameSize = UInt32(MemoryLayout<CFString>.size)
+        AudioObjectGetPropertyData(deviceID, &nameAddress, 0, nil, &nameSize, &name)
+        return name as String
+    }
+
+    /// Reconnect with retry logic — handles external mic connect/disconnect
     func reconnect() throws {
         guard isCurrentlyRecording, let callback = onChunkReady else { return }
-        logToFile("Reconnecting audio engine after device change...")
+        guard !isReconnecting else {
+            logToFile("Reconnect already in progress — skipping")
+            return
+        }
+        isReconnecting = true
 
-        // Stop old engine
-        audioEngine.inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
+        let maxRetries = 3
+        var lastError: Error?
 
-        // Create fresh engine (required after device change)
-        audioEngine = AVAudioEngine()
-        audioConverter = nil
+        for attempt in 1...maxRetries {
+            do {
+                logToFile("Reconnect attempt \(attempt)/\(maxRetries) to: \(getCurrentInputDeviceName())")
 
-        // Restart with saved parameters
-        try startRecording(
-            chunkDuration: lastChunkDuration,
-            silenceThreshold: lastSilenceThreshold,
-            onChunkReady: callback
-        )
-        logToFile("Audio engine reconnected successfully")
+                // Stop old engine completely
+                audioEngine.inputNode.removeTap(onBus: 0)
+                audioEngine.stop()
+                audioEngine.reset()
+
+                // Create completely fresh engine — required after device change
+                audioEngine = AVAudioEngine()
+                audioConverter = nil
+
+                // Small delay to let the new engine pick up the new device
+                Thread.sleep(forTimeInterval: 0.3)
+
+                // Verify the new input device is valid
+                let inputNode = audioEngine.inputNode
+                let inputFormat = inputNode.outputFormat(forBus: 0)
+
+                guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+                    logToFile("Reconnect attempt \(attempt): input format invalid (sr=\(inputFormat.sampleRate), ch=\(inputFormat.channelCount))")
+                    if attempt < maxRetries {
+                        Thread.sleep(forTimeInterval: Double(attempt))  // 1s, 2s backoff
+                        continue
+                    }
+                    throw AudioError.noInputDevice
+                }
+
+                logToFile("New input format: \(inputFormat.sampleRate)Hz, \(inputFormat.channelCount)ch")
+
+                // Clear accumulated samples (they were from the old device/format)
+                lock.lock()
+                accumulatedSamples.removeAll()
+                accumulatedDuration = 0
+                voiceDetected = false
+                silenceDuration = 0
+                lock.unlock()
+
+                // Restart with saved parameters
+                try startRecording(
+                    chunkDuration: lastChunkDuration,
+                    silenceThreshold: lastSilenceThreshold,
+                    onChunkReady: callback
+                )
+
+                logToFile("Reconnected successfully to: \(getCurrentInputDeviceName())")
+                isReconnecting = false
+                return
+
+            } catch {
+                lastError = error
+                logToFile("Reconnect attempt \(attempt) failed: \(error.localizedDescription)")
+                if attempt < maxRetries {
+                    Thread.sleep(forTimeInterval: Double(attempt))  // 1s, 2s backoff
+                }
+            }
+        }
+
+        isReconnecting = false
+        logToFile("All reconnect attempts failed!")
+        throw lastError ?? AudioError.noInputDevice
     }
 
     func startRecording(
@@ -132,6 +224,8 @@ final class AudioCaptureService {
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw AudioError.noInputDevice
         }
+
+        logToFile("Starting recording — device: \(getCurrentInputDeviceName()), format: \(inputFormat.sampleRate)Hz \(inputFormat.channelCount)ch")
 
         // Create converter from hardware format to 16kHz mono
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
@@ -167,9 +261,9 @@ final class AudioCaptureService {
             guard let self, self.isCurrentlyRecording else { return }
             let elapsed = Date().timeIntervalSince(self.lastBufferTime)
             if elapsed > 10 {
-                logToFile("WATCHDOG: No audio buffers for \(Int(elapsed))s — auto-reconnecting")
+                logToFile("WATCHDOG: No audio buffers for \(Int(elapsed))s — forcing reconnect")
                 DispatchQueue.main.async {
-                    self.onDeviceChanged?()  // Trigger reconnect
+                    self.onDeviceChanged?()  // Trigger reconnect via debounced path
                 }
             }
         }
@@ -185,6 +279,7 @@ final class AudioCaptureService {
     /// Stop recording and return any remaining accumulated audio
     func stopRecording() -> [Float]? {
         isCurrentlyRecording = false
+        reconnectWorkItem?.cancel()
         stopWatchdog()
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
@@ -287,7 +382,7 @@ final class AudioCaptureService {
         }
 
         if let error {
-            print("[AudioCapture] Conversion error: \(error)")
+            logToFile("[AudioCapture] Conversion error: \(error)")
             return nil
         }
 
