@@ -69,6 +69,10 @@ final class AppState {
     var selectedModel: WhisperModelSize {
         get {
             let model = WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "selectedModel") ?? "small") ?? .small
+            // Dev mode: skip free-tier model gating (check for .env = dev machine)
+            let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
+                || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+            if devConfigExists { return model }
             // Downgrade to base if free user has pro model selected
             if !isPro && !model.isFree { return .base }
             return model
@@ -351,6 +355,7 @@ final class AppState {
     }
 
     func loadModel() async {
+        logToFile("Loading model: \(selectedModel.rawValue) (isPro=\(isPro))")
         await MainActor.run {
             isModelDownloading = true
             isModelLoaded = false
@@ -505,8 +510,10 @@ final class AppState {
             }
 
             // LLM cleanup: send raw Whisper text through Groq for polish
+            // Skip LLM for very short outputs (1-2 words) — not worth the latency
+            let wordCount = trimmed.split(separator: " ").count
             let outputText: String
-            if llmCleanupEnabled && (!groqApiKey.isEmpty || !openRouterApiKey.isEmpty) && canUseLLMCleanup {
+            if llmCleanupEnabled && (!groqApiKey.isEmpty || !openRouterApiKey.isEmpty) && canUseLLMCleanup && wordCount >= 3 {
                 llmCleanupsToday += 1
                 let cleaned = await llmCleanupService?.cleanWithFailover(trimmed, groqKey: groqApiKey, openRouterKey: openRouterApiKey) ?? trimmed
                 if cleaned.isEmpty {

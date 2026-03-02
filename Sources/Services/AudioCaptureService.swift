@@ -15,9 +15,9 @@ final class AudioCaptureService {
     // Smart VAD — pause detection
     private var voiceDetected = false
     private var silenceDuration: TimeInterval = 0
-    private let silencePauseThreshold: TimeInterval = 0.3  // 300ms silence = user paused
-    private let minChunkDuration: TimeInterval = 0.5       // Don't emit chunks shorter than 0.5s
-    private let maxChunkDuration: TimeInterval = 15.0      // Force-emit after 15s (safety)
+    private let silencePauseThreshold: TimeInterval = 0.2  // 200ms silence = user paused (faster response)
+    private let minChunkDuration: TimeInterval = 0.3       // Don't emit chunks shorter than 0.3s
+    private let maxChunkDuration: TimeInterval = 6.0       // Force-emit after 6s (was 15s — reduces delay)
 
     // Callback
     private var onChunkReady: (([Float]) -> Void)?
@@ -32,6 +32,7 @@ final class AudioCaptureService {
     private var deviceChangeListenerID: AudioObjectPropertyListenerBlock?
     private var reconnectWorkItem: DispatchWorkItem?    // Debounce
     private var isReconnecting = false                  // Prevent overlapping reconnects
+    private var engineNeedsReset = false                // Flag stale engine after device change
 
     // Watchdog — detect stalled audio engine
     private var lastBufferTime: Date = Date()
@@ -69,9 +70,15 @@ final class AudioCaptureService {
             // Debounce: cancel previous reconnect, wait 1.5s for device to stabilize
             self.reconnectWorkItem?.cancel()
             let work = DispatchWorkItem { [weak self] in
-                guard let self, self.isCurrentlyRecording else { return }
-                logToFile("Debounced device change — reconnecting to: \(self.getCurrentInputDeviceName())")
-                self.onDeviceChanged?()
+                guard let self else { return }
+                if self.isCurrentlyRecording {
+                    logToFile("Debounced device change — reconnecting to: \(self.getCurrentInputDeviceName())")
+                    self.onDeviceChanged?()
+                } else {
+                    // Not recording — flag engine as stale so next startRecording() creates fresh engine
+                    logToFile("Device changed while idle — flagging engine for reset")
+                    self.engineNeedsReset = true
+                }
             }
             self.reconnectWorkItem = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
@@ -217,6 +224,18 @@ final class AudioCaptureService {
         voiceDetected = false
         silenceDuration = 0
         isCurrentlyRecording = true
+
+        // Always create fresh engine to pick up current default input device
+        // This prevents stale engine issues after device changes
+        if engineNeedsReset || !audioEngine.isRunning {
+            logToFile("Creating fresh audio engine (reset=\(engineNeedsReset), running=\(audioEngine.isRunning))")
+            audioEngine.inputNode.removeTap(onBus: 0)
+            audioEngine.stop()
+            audioEngine.reset()
+            audioEngine = AVAudioEngine()
+            audioConverter = nil
+            engineNeedsReset = false
+        }
 
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)

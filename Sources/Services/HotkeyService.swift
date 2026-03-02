@@ -6,6 +6,8 @@ import AppKit
 final class HotkeyService {
     private var hotkeyRef: EventHotKeyRef?
     private static var onToggle: (() -> Void)?
+    private static var lastFireTime: Date = .distantPast
+    private static let debounceSec: TimeInterval = 0.3
 
     /// Current hotkey keycode (default: kVK_ANSI_D = 2)
     var keyCode: UInt32 {
@@ -48,6 +50,11 @@ final class HotkeyService {
         InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, event, _) -> OSStatus in
+                let now = Date()
+                guard now.timeIntervalSince(HotkeyService.lastFireTime) > HotkeyService.debounceSec else {
+                    return noErr  // Ignore duplicate fires within 300ms
+                }
+                HotkeyService.lastFireTime = now
                 HotkeyService.onToggle?()
                 return noErr
             },
