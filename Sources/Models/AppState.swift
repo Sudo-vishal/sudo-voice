@@ -166,7 +166,11 @@ final class AppState {
     }
 
     var canUseLLMCleanup: Bool {
-        isPro || llmCleanupsToday < FreeTierLimits.llmCleanupsPerDay
+        // Dev mode: unlimited LLM cleanups
+        let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+        if devConfigExists { return true }
+        return isPro || llmCleanupsToday < FreeTierLimits.llmCleanupsPerDay
     }
 
     /// Models available based on license status
@@ -512,8 +516,11 @@ final class AppState {
             // LLM cleanup: send raw Whisper text through Groq for polish
             // Skip LLM for very short outputs (1-2 words) — not worth the latency
             let wordCount = trimmed.split(separator: " ").count
+            let groqOk = !groqApiKey.isEmpty
+            let orOk = !openRouterApiKey.isEmpty
+            logToFile("LLM gate: enabled=\(llmCleanupEnabled) groq=\(groqOk) or=\(orOk) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
             let outputText: String
-            if llmCleanupEnabled && (!groqApiKey.isEmpty || !openRouterApiKey.isEmpty) && canUseLLMCleanup && wordCount >= 3 {
+            if llmCleanupEnabled && (groqOk || orOk) && canUseLLMCleanup && wordCount >= 3 {
                 llmCleanupsToday += 1
                 let cleaned = await llmCleanupService?.cleanWithFailover(trimmed, groqKey: groqApiKey, openRouterKey: openRouterApiKey) ?? trimmed
                 if cleaned.isEmpty {
