@@ -314,13 +314,19 @@ final class AudioCaptureService {
 
     // MARK: - Private
 
+    private var bufferLogCounter = 0
+
     private func processBuffer(
         _ buffer: AVAudioPCMBuffer,
         chunkDuration: Double,
         silenceThreshold: Float
     ) {
         // Convert to 16kHz mono
-        guard let converted = convertToTarget(buffer) else { return }
+        guard let converted = convertToTarget(buffer) else {
+            bufferLogCounter += 1
+            if bufferLogCounter % 50 == 1 { logToFile("processBuffer: conversion FAILED (count=\(bufferLogCounter))") }
+            return
+        }
         guard let channelData = converted.floatChannelData?[0] else { return }
 
         let frameCount = Int(converted.frameLength)
@@ -331,6 +337,12 @@ final class AudioCaptureService {
         // Calculate RMS energy for VAD
         var rms: Float = 0
         vDSP_rmsqv(channelData, 1, &rms, vDSP_Length(frameCount))
+
+        // Debug: log every 100th buffer to avoid spam
+        bufferLogCounter += 1
+        if bufferLogCounter % 100 == 1 {
+            logToFile("audio buffer #\(bufferLogCounter): rms=\(String(format: "%.4f", rms)) threshold=\(silenceThreshold) dur=\(String(format: "%.2f", accumulatedDuration))s voice=\(voiceDetected)")
+        }
 
         let hasVoice = rms > silenceThreshold
 

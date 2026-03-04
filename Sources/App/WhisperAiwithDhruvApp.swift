@@ -51,6 +51,10 @@ struct IndianWhisperApp: App {
         Settings {
             SettingsView()
                 .environment(sharedAppState)
+                .onDisappear {
+                    // Go back to accessory mode (no dock icon) when settings closes
+                    NSApplication.shared.setActivationPolicy(.accessory)
+                }
         }
 
         // Onboarding window

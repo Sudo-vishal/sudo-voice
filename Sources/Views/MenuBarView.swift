@@ -1,4 +1,41 @@
 import SwiftUI
+import AppKit
+
+/// Manages a standalone settings window (works with .accessory activation policy)
+private final class SettingsWindowManager {
+    static let shared = SettingsWindowManager()
+    private var window: NSWindow?
+
+    func open() {
+        if let existing = window, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let settingsView = SettingsView()
+            .environment(sharedAppState)
+
+        let hostingView = NSHostingView(rootView: settingsView)
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        w.title = "IndianWhisper Settings"
+        w.contentView = hostingView
+        w.center()
+        w.isReleasedWhenClosed = false
+        w.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        self.window = w
+    }
+}
+
+private func openSettings() {
+    SettingsWindowManager.shared.open()
+}
 
 struct MenuBarView: View {
     private var appState: AppState { sharedAppState }
@@ -68,13 +105,49 @@ struct MenuBarView: View {
             set: { appState.llmCleanupEnabled = $0 }
         ))
 
-        if appState.llmCleanupEnabled && appState.groqApiKey.isEmpty && appState.openRouterApiKey.isEmpty {
-            Button("Set API Key (Groq/OpenRouter)...") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        Toggle("Smart Punctuation", isOn: Binding(
+            get: { appState.smartPunctuationEnabled },
+            set: { appState.smartPunctuationEnabled = $0 }
+        ))
+
+        Toggle("Scratch That", isOn: Binding(
+            get: { appState.scratchThatEnabled },
+            set: { appState.scratchThatEnabled = $0 }
+        ))
+
+        if appState.llmCleanupEnabled && !appState.hasAnyLLMKey {
+            Button("Set API Key (\(appState.selectedLLMProvider.displayName))...") {
+                openSettings()
             }
         }
 
         Divider()
+
+        // Recent transcriptions
+        if !appState.transcriptionHistory.isEmpty {
+            Text("Recent")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(appState.transcriptionHistory.prefix(5)) { entry in
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(entry.cleanedText, forType: .string)
+                }) {
+                    Text(entry.cleanedText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+
+            if appState.transcriptionHistory.count > 5 {
+                Button("View All History...") {
+                    openSettings()
+                }
+            }
+
+            Divider()
+        }
 
         if !AutoTypeService.isAccessibilityGranted() {
             Button("Grant Accessibility") {
@@ -95,7 +168,7 @@ struct MenuBarView: View {
         }
 
         Button("Settings...") {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            openSettings()
         }
         .keyboardShortcut(",")
 

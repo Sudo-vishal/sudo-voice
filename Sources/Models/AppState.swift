@@ -42,10 +42,21 @@ enum FreeTierLimits {
 
 // MARK: - Transcription Entry
 
-struct TranscriptionEntry: Identifiable {
-    let id = UUID()
-    let text: String
+struct TranscriptionEntry: Identifiable, Codable {
+    let id: UUID
+    let originalText: String
+    let cleanedText: String
     let timestamp: Date
+
+    init(originalText: String, cleanedText: String, timestamp: Date = Date()) {
+        self.id = UUID()
+        self.originalText = originalText
+        self.cleanedText = cleanedText
+        self.timestamp = timestamp
+    }
+
+    /// Backward-compatible accessor
+    var text: String { cleanedText }
 }
 
 // MARK: - App State
@@ -65,15 +76,17 @@ final class AppState {
     var lastTranscription = ""
     var transcriptionHistory: [TranscriptionEntry] = []
 
+    // Scratch-that tracking (non-persisted, per session)
+    var recentOutputLengths: [Int] = []
+    var sessionTotalChars: Int = 0
+
     // Settings (persisted via UserDefaults)
     var selectedModel: WhisperModelSize {
         get {
             let model = WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "selectedModel") ?? "small") ?? .small
-            // Dev mode: skip free-tier model gating (check for .env = dev machine)
             let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
                 || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
             if devConfigExists { return model }
-            // Downgrade to base if free user has pro model selected
             if !isPro && !model.isFree { return .base }
             return model
         }
@@ -105,13 +118,56 @@ final class AppState {
         get { UserDefaults.standard.object(forKey: "llmCleanupEnabled") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "llmCleanupEnabled") }
     }
+
+    // MARK: - LLM Provider Settings
+
+    var selectedLLMProvider: LLMProvider {
+        get { LLMProvider(rawValue: UserDefaults.standard.string(forKey: "selectedLLMProvider") ?? "groq") ?? .groq }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "selectedLLMProvider") }
+    }
+
+    var groqApiKey: String {
+        get { readEnvKey("GROQ_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "groqApiKey") }
+    }
     var openRouterApiKey: String {
         get { readEnvKey("OPENROUTER_API_KEY") }
         set { UserDefaults.standard.set(newValue, forKey: "openRouterApiKey") }
     }
-    var groqApiKey: String {
-        get { readEnvKey("GROQ_API_KEY") }
-        set { UserDefaults.standard.set(newValue, forKey: "groqApiKey") }
+    var claudeApiKey: String {
+        get { readEnvKey("ANTHROPIC_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "claudeApiKey") }
+    }
+    var openAIApiKey: String {
+        get { readEnvKey("OPENAI_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "openAIApiKey") }
+    }
+    var geminiApiKey: String {
+        get { readEnvKey("GEMINI_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "geminiApiKey") }
+    }
+    var moonshotApiKey: String {
+        get { readEnvKey("MOONSHOT_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "moonshotApiKey") }
+    }
+    var deepSeekApiKey: String {
+        get { readEnvKey("DEEPSEEK_API_KEY") }
+        set { UserDefaults.standard.set(newValue, forKey: "deepSeekApiKey") }
+    }
+
+    var customStyleInstructions: String {
+        get { UserDefaults.standard.string(forKey: "customStyleInstructions") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "customStyleInstructions") }
+    }
+
+    var smartPunctuationEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "smartPunctuationEnabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "smartPunctuationEnabled") }
+    }
+
+    var scratchThatEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "scratchThatEnabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "scratchThatEnabled") }
     }
 
     // MARK: - License & Usage Tracking
@@ -121,31 +177,26 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "licenseKey") }
     }
 
-    /// Pro status — validated by LicenseService
     var isPro: Bool {
         get { UserDefaults.standard.bool(forKey: "isPro") }
         set { UserDefaults.standard.set(newValue, forKey: "isPro") }
     }
 
-    /// Minutes transcribed today (resets daily)
     var minutesTranscribedToday: Double {
         get { UserDefaults.standard.double(forKey: "minutesTranscribedToday") }
         set { UserDefaults.standard.set(newValue, forKey: "minutesTranscribedToday") }
     }
 
-    /// LLM cleanups used today (resets daily)
     var llmCleanupsToday: Int {
         get { UserDefaults.standard.integer(forKey: "llmCleanupsToday") }
         set { UserDefaults.standard.set(newValue, forKey: "llmCleanupsToday") }
     }
 
-    /// Date string for daily reset tracking (yyyy-MM-dd)
     private var lastUsageResetDate: String {
         get { UserDefaults.standard.string(forKey: "lastUsageResetDate") ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: "lastUsageResetDate") }
     }
 
-    /// Whether onboarding has been completed
     var hasCompletedOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
         set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
@@ -166,20 +217,17 @@ final class AppState {
     }
 
     var canUseLLMCleanup: Bool {
-        // Dev mode: unlimited LLM cleanups
         let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
             || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
         if devConfigExists { return true }
         return isPro || llmCleanupsToday < FreeTierLimits.llmCleanupsPerDay
     }
 
-    /// Models available based on license status
     var availableModels: [WhisperModelSize] {
         if isPro { return WhisperModelSize.allCases }
         return WhisperModelSize.allCases.filter { $0.isFree }
     }
 
-    /// Reset daily counters if date changed
     func resetDailyUsageIfNeeded() {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -192,18 +240,46 @@ final class AppState {
         }
     }
 
-    /// Track transcription time (call after each chunk)
     func trackTranscriptionTime(seconds: Double) {
         minutesTranscribedToday += seconds / 60.0
     }
 
-    /// Read API key from UserDefaults first, then .env file
+    // MARK: - API Key Helpers
+
+    func apiKeyForProvider(_ provider: LLMProvider) -> String {
+        switch provider {
+        case .groq: return groqApiKey
+        case .openRouter: return openRouterApiKey
+        case .claude: return claudeApiKey
+        case .openAI: return openAIApiKey
+        case .gemini: return geminiApiKey
+        case .moonshot: return moonshotApiKey
+        case .deepSeek: return deepSeekApiKey
+        }
+    }
+
+    func allAPIKeys() -> [LLMProvider: String] {
+        Dictionary(uniqueKeysWithValues: LLMProvider.allCases.map { ($0, apiKeyForProvider($0)) })
+    }
+
+    var hasAnyLLMKey: Bool {
+        LLMProvider.allCases.contains { !apiKeyForProvider($0).isEmpty }
+    }
+
     private func readEnvKey(_ envName: String) -> String {
-        let udKey = envName == "GROQ_API_KEY" ? "groqApiKey" : "openRouterApiKey"
+        let udKeyMap: [String: String] = [
+            "GROQ_API_KEY": "groqApiKey",
+            "OPENROUTER_API_KEY": "openRouterApiKey",
+            "ANTHROPIC_API_KEY": "claudeApiKey",
+            "OPENAI_API_KEY": "openAIApiKey",
+            "GEMINI_API_KEY": "geminiApiKey",
+            "MOONSHOT_API_KEY": "moonshotApiKey",
+            "DEEPSEEK_API_KEY": "deepSeekApiKey",
+        ]
+        let udKey = udKeyMap[envName] ?? envName
         if let key = UserDefaults.standard.string(forKey: udKey), !key.isEmpty {
             return key
         }
-        // Check both new and legacy config paths
         let configDir = FileManager.default.homeDirectoryForCurrentUser
         let envPath = configDir.appendingPathComponent(".config/indianwhisper/.env").path
         let legacyPath = configDir.appendingPathComponent(".config/whisper-aiwithdhruv/.env").path
@@ -217,6 +293,27 @@ final class AppState {
             }
         }
         return ""
+    }
+
+    // MARK: - History Persistence
+
+    func loadHistory() {
+        guard let data = UserDefaults.standard.data(forKey: "transcriptionHistory"),
+              let entries = try? JSONDecoder().decode([TranscriptionEntry].self, from: data)
+        else { return }
+        transcriptionHistory = entries
+    }
+
+    func saveHistory() {
+        let limited = Array(transcriptionHistory.prefix(100))
+        if let data = try? JSONEncoder().encode(limited) {
+            UserDefaults.standard.set(data, forKey: "transcriptionHistory")
+        }
+    }
+
+    func clearHistory() {
+        transcriptionHistory.removeAll()
+        UserDefaults.standard.removeObject(forKey: "transcriptionHistory")
     }
 
     // Computed
@@ -250,38 +347,44 @@ final class AppState {
     var llmCleanupService: LLMCleanupService?
     var licenseService: LicenseService?
 
-    /// Show upgrade prompt when free tier is exhausted
     var showUpgradePrompt = false
 
     // MARK: - Lifecycle
 
+    private var isDevMode: Bool {
+        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+    }
+
     func setup() async {
         logToFile("setup() entered")
 
-        // Reset daily usage counters if date changed
-        resetDailyUsageIfNeeded()
+        // Auto-enable Pro for developer (has .env config)
+        if isDevMode {
+            isPro = true
+            logToFile("Dev mode detected — Pro auto-enabled")
+        }
 
-        // Request mic permission
+        resetDailyUsageIfNeeded()
+        loadHistory()
+
         if PermissionService.microphoneStatus() == .notDetermined {
             _ = await PermissionService.requestMicrophonePermission()
         }
         logToFile("Mic permission checked")
 
-        // Init services (UI-related ones MUST be on main thread)
         transcriptionService = TranscriptionService()
         audioService = AudioCaptureService()
         autoTypeService = AutoTypeService()
         llmCleanupService = LLMCleanupService()
         licenseService = LicenseService()
 
-        // Validate license on startup
         if !licenseKey.isEmpty {
             let valid = await licenseService?.validate(licenseKey) ?? false
             await MainActor.run { isPro = valid }
             logToFile("License validation: \(valid ? "Pro" : "Invalid")")
         }
 
-        // Auto-reconnect mic when audio device changes
         audioService?.onDeviceChanged = { [weak self] in
             guard let self, self.isRecording else { return }
             logToFile("Device changed while recording — attempting reconnect")
@@ -298,14 +401,12 @@ final class AppState {
             hotkeyService = HotkeyService()
             floatingIndicator = FloatingIndicatorController()
 
-            // Register hotkey (Carbon API needs main thread)
             hotkeyService?.register { [weak self] in
                 Task { @MainActor in
                     self?.toggleRecording()
                 }
             }
 
-            // One-time accessibility prompt on launch if not granted
             if !AXIsProcessTrusted() {
                 logToFile("Accessibility not granted — prompting user")
                 AutoTypeService.promptAccessibilityOnce()
@@ -315,17 +416,14 @@ final class AppState {
         }
         logToFile("Services initialized, hotkey registered")
 
-        // Wait for network before loading model (WhisperKit needs connectivity for cache verification)
         await waitForNetwork()
 
-        // Load model
         do {
             await loadModel()
             logToFile("Model load complete")
         }
     }
 
-    /// Wait for network connectivity (max ~30s) before proceeding
     private func waitForNetwork() async {
         let monitor = NWPathMonitor()
         let queue = DispatchQueue(label: "network-check")
@@ -342,7 +440,6 @@ final class AppState {
             }
             monitor.start(queue: queue)
 
-            // Timeout after 30 seconds — proceed anyway (model may be cached)
             DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
                 guard !resumed else { return }
                 resumed = true
@@ -365,7 +462,6 @@ final class AppState {
             isModelLoaded = false
         }
 
-        // Retry up to 3 times with exponential backoff
         let maxRetries = 3
         for attempt in 1...maxRetries {
             do {
@@ -382,10 +478,9 @@ final class AppState {
             } catch {
                 logToFile("MODEL LOAD ERROR (attempt \(attempt)/\(maxRetries)): \(error)")
                 if attempt < maxRetries {
-                    let delay = Double(attempt) * 5.0  // 5s, 10s, 15s
+                    let delay = Double(attempt) * 5.0
                     logToFile("Retrying model load in \(Int(delay))s...")
                     try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                    // Re-check network before retry
                     await waitForNetwork()
                 }
             }
@@ -413,6 +508,10 @@ final class AppState {
         isRecording = true
         floatingIndicator?.update(isRecording: true, isProcessing: false)
 
+        // Reset scratch-that tracking for new session
+        recentOutputLengths.removeAll()
+        sessionTotalChars = 0
+
         do {
             try audioService?.startRecording(
                 chunkDuration: chunkDuration,
@@ -423,7 +522,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("[WhisperAiwithDhruv] Recording error: \(error)")
+            print("[IndianWhisper] Recording error: \(error)")
             isRecording = false
         }
     }
@@ -443,10 +542,8 @@ final class AppState {
     // MARK: - Transcription Pipeline
 
     func processChunk(_ samples: [Float]) async {
-        // Reset daily counters if needed
         resetDailyUsageIfNeeded()
 
-        // Free tier gate: check if daily limit exhausted
         if isFreeTierExhausted {
             await MainActor.run {
                 showUpgradePrompt = true
@@ -465,7 +562,6 @@ final class AppState {
             }
         }
 
-        // Track transcription time (samples at 16kHz)
         let chunkSeconds = Double(samples.count) / 16000.0
         trackTranscriptionTime(seconds: chunkSeconds)
 
@@ -475,11 +571,9 @@ final class AppState {
                 language: language
             ) ?? ""
 
-            // Filter out Whisper hallucinations and noise descriptions
             let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             let lower = trimmed.lowercased()
 
-            // Skip empty
             guard !trimmed.isEmpty else {
                 await MainActor.run { isProcessing = false }
                 return
@@ -498,7 +592,7 @@ final class AppState {
                 return
             }
 
-            // Skip noise/sound descriptions like (dog barking), [BLANK_AUDIO], (coughing), etc.
+            // Skip noise/sound descriptions
             if lower.hasPrefix("(") && lower.hasSuffix(")") {
                 await MainActor.run { isProcessing = false }
                 return
@@ -507,52 +601,108 @@ final class AppState {
                 await MainActor.run { isProcessing = false }
                 return
             }
-            // Also catch "* sound *" patterns
             if lower.hasPrefix("*") && lower.hasSuffix("*") {
                 await MainActor.run { isProcessing = false }
                 return
             }
 
-            // LLM cleanup: send raw Whisper text through Groq for polish
-            // Skip LLM for very short outputs (1-2 words) — not worth the latency
+            // FEATURE 5: Voice command detection (BEFORE LLM cleanup)
+            if scratchThatEnabled {
+                let command = VoiceCommandService.detect(trimmed)
+                switch command {
+                case .scratchThat:
+                    await MainActor.run {
+                        if let lastLength = recentOutputLengths.popLast() {
+                            autoTypeService?.deleteCharacters(lastLength)
+                            sessionTotalChars -= lastLength
+                            logToFile("SCRATCH THAT: deleted \(lastLength) chars")
+                        }
+                        isProcessing = false
+                    }
+                    return
+
+                case .deleteWord:
+                    await MainActor.run {
+                        autoTypeService?.deleteLastWord()
+                        logToFile("DELETE WORD")
+                        isProcessing = false
+                    }
+                    return
+
+                case .clearAll:
+                    await MainActor.run {
+                        if sessionTotalChars > 0 {
+                            autoTypeService?.deleteCharacters(sessionTotalChars)
+                            logToFile("CLEAR ALL: deleted \(sessionTotalChars) chars")
+                            sessionTotalChars = 0
+                            recentOutputLengths.removeAll()
+                        }
+                        isProcessing = false
+                    }
+                    return
+
+                case .none:
+                    break
+                }
+            }
+
+            // Save raw text for history
+            let rawWhisperText = trimmed
+
+            // FEATURE 2: LLM cleanup with selected provider + FEATURE 1: custom instructions
             let wordCount = trimmed.split(separator: " ").count
-            let groqOk = !groqApiKey.isEmpty
-            let orOk = !openRouterApiKey.isEmpty
-            logToFile("LLM gate: enabled=\(llmCleanupEnabled) groq=\(groqOk) or=\(orOk) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
-            let outputText: String
-            if llmCleanupEnabled && (groqOk || orOk) && canUseLLMCleanup && wordCount >= 3 {
+            logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
+            let llmOutput: String
+            if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
                 llmCleanupsToday += 1
-                let cleaned = await llmCleanupService?.cleanWithFailover(trimmed, groqKey: groqApiKey, openRouterKey: openRouterApiKey) ?? trimmed
+                let cleaned = await llmCleanupService?.cleanWithProvider(
+                    trimmed,
+                    provider: selectedLLMProvider,
+                    apiKeys: allAPIKeys(),
+                    customInstructions: customStyleInstructions
+                ) ?? trimmed
                 if cleaned.isEmpty {
-                    // LLM said [SKIP] — all noise/fillers
                     await MainActor.run { isProcessing = false }
                     return
                 }
-                outputText = cleaned
+                llmOutput = cleaned
             } else {
-                outputText = trimmed
+                llmOutput = trimmed
+            }
+
+            // FEATURE 4: Smart punctuation (AFTER LLM cleanup)
+            let finalText: String
+            if smartPunctuationEnabled {
+                finalText = SmartPunctuationService.apply(llmOutput)
+            } else {
+                finalText = llmOutput
             }
 
             await MainActor.run {
-                lastTranscription = outputText
+                lastTranscription = finalText
 
+                // FEATURE 3: History with original + cleaned text
                 transcriptionHistory.insert(
-                    TranscriptionEntry(text: outputText, timestamp: Date()),
+                    TranscriptionEntry(originalText: rawWhisperText, cleanedText: finalText),
                     at: 0
                 )
-
-                // Keep last 50 entries
-                if transcriptionHistory.count > 50 {
-                    transcriptionHistory = Array(transcriptionHistory.prefix(50))
+                if transcriptionHistory.count > 100 {
+                    transcriptionHistory = Array(transcriptionHistory.prefix(100))
                 }
+                saveHistory()
 
-                // Auto-type
+                // Auto-type + FEATURE 5: track char count
                 if autoTypeEnabled {
-                    autoTypeService?.typeText(outputText + " ")
+                    let textToType = finalText + " "
+                    autoTypeService?.typeText(textToType)
+                    recentOutputLengths.append(textToType.count)
+                    sessionTotalChars += textToType.count
+                    if recentOutputLengths.count > 20 {
+                        recentOutputLengths.removeFirst()
+                    }
                 }
 
                 isProcessing = false
-                // Only show indicator if still recording
                 if isRecording {
                     floatingIndicator?.update(isRecording: true, isProcessing: false)
                 } else {
@@ -560,7 +710,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("[WhisperAiwithDhruv] Transcription error: \(error)")
+            print("[IndianWhisper] Transcription error: \(error)")
             await MainActor.run {
                 isProcessing = false
                 if !isRecording { floatingIndicator?.hide() }

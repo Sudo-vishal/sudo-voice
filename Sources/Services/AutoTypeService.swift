@@ -77,6 +77,39 @@ final class AutoTypeService {
         }
     }
 
+    // MARK: - Delete Text (Backspace via CGEvent)
+
+    /// Delete N characters by sending DELETE key events
+    func deleteCharacters(_ count: Int) {
+        guard AXIsProcessTrusted(), count > 0 else { return }
+        logToFile("deleteCharacters: \(count)")
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        for _ in 0..<count {
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: true),
+               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: false) {
+                keyDown.post(tap: .cgAnnotatedSessionEventTap)
+                keyUp.post(tap: .cgAnnotatedSessionEventTap)
+                usleep(2_000)  // 2ms between deletes
+            }
+        }
+    }
+
+    /// Delete the last word by sending Option+Delete
+    func deleteLastWord() {
+        guard AXIsProcessTrusted() else { return }
+        logToFile("deleteLastWord")
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: true),
+           let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: false) {
+            keyDown.flags = .maskAlternate  // Option+Delete = delete word
+            keyUp.flags = .maskAlternate
+            keyDown.post(tap: .cgAnnotatedSessionEventTap)
+            keyUp.post(tap: .cgAnnotatedSessionEventTap)
+        }
+    }
+
     // MARK: - Private
 
     private func typeUnicodeChunk(_ utf16Chars: [UInt16], source: CGEventSource?) {

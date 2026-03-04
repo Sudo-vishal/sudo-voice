@@ -14,15 +14,59 @@ struct SettingsView: View {
                 .environment(appState)
                 .tabItem { Label("Models", systemImage: "cpu") }
 
-            AdvancedTab()
+            LLMTab()
                 .environment(appState)
-                .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
+                .tabItem { Label("AI Cleanup", systemImage: "sparkles") }
+
+            HistoryTab()
+                .environment(appState)
+                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
 
             LicenseTab()
                 .environment(appState)
                 .tabItem { Label("License", systemImage: "key") }
         }
-        .frame(width: 440, height: 340)
+        .frame(minWidth: 540, minHeight: 480)
+    }
+}
+
+// MARK: - Secure API Key Field
+
+private struct SecureAPIKeyField: View {
+    let label: String
+    @Binding var key: String
+    @State private var showKey = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .frame(width: 90, alignment: .trailing)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if showKey {
+                TextField("", text: $key)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.caption, design: .monospaced))
+            } else {
+                SecureField("", text: $key)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.caption, design: .monospaced))
+            }
+
+            Button(action: { showKey.toggle() }) {
+                Image(systemName: showKey ? "eye.slash" : "eye")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(showKey ? "Hide key" : "Show key")
+
+            // Green dot if key is set
+            Circle()
+                .fill(key.isEmpty ? Color.clear : Color.green)
+                .frame(width: 6, height: 6)
+        }
     }
 }
 
@@ -34,62 +78,135 @@ private struct GeneralTab: View {
     var body: some View {
         @Bindable var state = appState
 
-        Form {
-            // Hotkey display
-            HStack {
-                Text("Recording Hotkey:")
-                Text(appState.hotkeyService?.displayString ?? "Cmd + D")
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .font(.system(.body, design: .monospaced))
-                Spacer()
-                HotkeyPicker(appState: appState)
-            }
-
-            Toggle("Hindi Mode (Hindi/Hinglish → English)", isOn: $state.hindiMode)
-            Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
-
-            Section("LLM Cleanup") {
-                Toggle("Enable LLM text cleanup", isOn: $state.llmCleanupEnabled)
-
-                if !appState.isPro {
-                    Text("\(appState.freeLLMCleanupsRemaining) cleanups remaining today")
-                        .font(.caption)
-                        .foregroundStyle(appState.freeLLMCleanupsRemaining > 5 ? Color.secondary : Color.orange)
-                }
-
-                TextField("Groq API Key (fastest)", text: $state.groqApiKey)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                TextField("OpenRouter API Key (fallback)", text: $state.openRouterApiKey)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                Text("Groq (~100ms) preferred, OpenRouter (~300ms) fallback. Removes fillers, fixes grammar.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Permissions") {
-                HStack {
-                    Text("Microphone")
-                    Spacer()
-                    PermissionBadge(granted: PermissionService.microphoneStatus() == .granted)
-                }
-                HStack {
-                    Text("Accessibility (for auto-type)")
-                    Spacer()
-                    PermissionBadge(granted: AutoTypeService.isAccessibilityGranted())
-                }
-                if !AutoTypeService.isAccessibilityGranted() {
-                    Button("Open Accessibility Settings") {
-                        PermissionService.requestAccessibilityPermission()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Hotkey
+                GroupBox("Recording") {
+                    HStack {
+                        Text("Hotkey:")
+                        Text(appState.hotkeyService?.displayString ?? "Cmd + D")
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.quaternary)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .font(.system(.body, design: .monospaced))
+                        Spacer()
+                        HotkeyPicker(appState: appState)
                     }
+                    .padding(.vertical, 4)
+
+                    Toggle("Hindi Mode (Hindi/Hinglish → English)", isOn: $state.hindiMode)
+                    Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
+                }
+
+                GroupBox("Text Processing") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Smart Punctuation", isOn: $state.smartPunctuationEnabled)
+                        Text("Say \"comma\", \"period\", \"question mark\", \"new line\" etc.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
+
+                        Toggle("\"Scratch That\" Voice Commands", isOn: $state.scratchThatEnabled)
+                        Text("\"scratch that\" = delete last, \"delete word\", \"clear all\"")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("Permissions") {
+                    VStack(spacing: 6) {
+                        HStack {
+                            Text("Microphone")
+                            Spacer()
+                            PermissionBadge(granted: PermissionService.microphoneStatus() == .granted)
+                        }
+                        HStack {
+                            Text("Accessibility (auto-type)")
+                            Spacer()
+                            PermissionBadge(granted: AutoTypeService.isAccessibilityGranted())
+                        }
+                        if !AutoTypeService.isAccessibilityGranted() {
+                            Button("Open Accessibility Settings") {
+                                PermissionService.requestAccessibilityPermission()
+                            }
+                            .font(.caption)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             }
+            .padding()
         }
-        .padding()
+    }
+}
+
+// MARK: - LLM Tab
+
+private struct LLMTab: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var state = appState
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GroupBox("Provider") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Enable LLM text cleanup", isOn: $state.llmCleanupEnabled)
+
+                        if !appState.isPro {
+                            let remaining = appState.freeLLMCleanupsRemaining
+                            Text("\(remaining) cleanups remaining today")
+                                .font(.caption)
+                                .foregroundStyle(remaining > 5 ? Color.secondary : Color.orange)
+                        }
+
+                        Picker("Provider", selection: $state.selectedLLMProvider) {
+                            ForEach(LLMProvider.allCases) { provider in
+                                Text("\(provider.displayName) · \(provider.modelName) · \(provider.latencyEstimate)")
+                                    .tag(provider)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("API Keys") {
+                    VStack(spacing: 6) {
+                        SecureAPIKeyField(label: "Groq", key: $state.groqApiKey)
+                        SecureAPIKeyField(label: "OpenRouter", key: $state.openRouterApiKey)
+                        SecureAPIKeyField(label: "Claude", key: $state.claudeApiKey)
+                        SecureAPIKeyField(label: "OpenAI", key: $state.openAIApiKey)
+                        SecureAPIKeyField(label: "Gemini", key: $state.geminiApiKey)
+                        SecureAPIKeyField(label: "Moonshot", key: $state.moonshotApiKey)
+                        SecureAPIKeyField(label: "DeepSeek", key: $state.deepSeekApiKey)
+
+                        Text("Selected provider tried first, others as fallback. Also reads ~/.config/indianwhisper/.env")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("Custom Instructions") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("e.g. \"Professional tone\", \"Keep it casual\"", text: $state.customStyleInstructions, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(2...4)
+                        Text("Appended to the LLM system prompt for style/tone control.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .padding()
+        }
     }
 }
 
@@ -102,7 +219,6 @@ private struct HotkeyPicker: View {
     var body: some View {
         Button(isRecording ? "Press key..." : "Change") {
             isRecording = true
-            // Listen for next key event
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard isRecording else { return event }
                 isRecording = false
@@ -113,14 +229,13 @@ private struct HotkeyPicker: View {
                 if event.modifierFlags.contains(.control) { carbonMods |= UInt32(controlKey) }
                 if event.modifierFlags.contains(.shift) { carbonMods |= UInt32(shiftKey) }
 
-                // Require at least one modifier
                 guard carbonMods != 0 else { return nil }
 
                 appState.hotkeyService?.updateHotkey(
                     keyCode: UInt32(event.keyCode),
                     modifiers: carbonMods
                 )
-                return nil  // Consume the event
+                return nil
             }
         }
         .buttonStyle(.bordered)
@@ -191,42 +306,106 @@ private struct ModelsTab: View {
                     .opacity(!model.isFree && !appState.isPro ? 0.5 : 1.0)
                 }
             }
+
+            Section("Advanced") {
+                HStack {
+                    Text("Chunk: \(state.chunkDuration, specifier: "%.1f")s")
+                        .frame(width: 80)
+                    Slider(value: $state.chunkDuration, in: 2.0...8.0, step: 0.5)
+                }
+
+                HStack {
+                    Text("Silence: \(state.silenceThreshold, specifier: "%.3f")")
+                        .frame(width: 80)
+                    Slider(
+                        value: Binding(
+                            get: { Double(state.silenceThreshold) },
+                            set: { state.silenceThreshold = Float($0) }
+                        ),
+                        in: 0.002...0.05,
+                        step: 0.002
+                    )
+                }
+
+                Text("Lower = more sensitive, Higher = less background noise.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
     }
 }
 
-// MARK: - Advanced
+// MARK: - History
 
-private struct AdvancedTab: View {
+private struct HistoryTab: View {
     @Environment(AppState.self) private var appState
+    @State private var searchText = ""
+
+    private var filteredHistory: [TranscriptionEntry] {
+        if searchText.isEmpty { return appState.transcriptionHistory }
+        let query = searchText.lowercased()
+        return appState.transcriptionHistory.filter {
+            $0.cleanedText.lowercased().contains(query) ||
+            $0.originalText.lowercased().contains(query)
+        }
+    }
 
     var body: some View {
-        @Bindable var state = appState
-
-        Form {
+        VStack(spacing: 0) {
             HStack {
-                Text("Chunk Duration: \(state.chunkDuration, specifier: "%.1f")s")
-                Slider(value: $state.chunkDuration, in: 2.0...8.0, step: 0.5)
-            }
-
-            HStack {
-                Text("Silence Threshold: \(state.silenceThreshold, specifier: "%.3f")")
-                Slider(
-                    value: Binding(
-                        get: { Double(state.silenceThreshold) },
-                        set: { state.silenceThreshold = Float($0) }
-                    ),
-                    in: 0.002...0.05,
-                    step: 0.002
-                )
-            }
-
-            Text("Lower threshold = more sensitive (picks up quieter speech). Higher = less background noise.")
+                TextField("Search history...", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                Spacer()
+                Text("\(appState.transcriptionHistory.count) entries")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Clear All") {
+                    appState.clearHistory()
+                }
+                .foregroundStyle(.red)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .disabled(appState.transcriptionHistory.isEmpty)
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            if filteredHistory.isEmpty {
+                Spacer()
+                Text(appState.transcriptionHistory.isEmpty ? "No transcriptions yet." : "No matches.")
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                List(filteredHistory) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.cleanedText)
+                            .lineLimit(3)
+                        if entry.originalText != entry.cleanedText {
+                            Text("Raw: \(entry.originalText)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Text(entry.timestamp, style: .relative)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contextMenu {
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(entry.cleanedText, forType: .string)
+                        }
+                        if entry.originalText != entry.cleanedText {
+                            Button("Copy Original") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(entry.originalText, forType: .string)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        .padding()
     }
 }
 
@@ -240,7 +419,6 @@ private struct LicenseTab: View {
 
     var body: some View {
         Form {
-            // Status
             HStack {
                 Text("Status:")
                 if appState.isPro {
@@ -254,7 +432,6 @@ private struct LicenseTab: View {
             }
 
             if !appState.isPro {
-                // Usage
                 Section("Daily Usage") {
                     HStack {
                         Text("Transcription")
