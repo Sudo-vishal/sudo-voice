@@ -4,6 +4,8 @@
 
 ### Offline Voice-to-Text with AI Cleanup
 
+![IndianWhisper Overview](assets/indianwhisper-overview.png)
+
 **Speak → AI cleans → Types wherever your cursor is. No cloud. No subscription needed.**
 
 Mac · iOS · Android · Windows
