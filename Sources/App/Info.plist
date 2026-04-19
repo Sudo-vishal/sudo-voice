@@ -10,6 +10,10 @@
     <string>IndianWhisper</string>
     <key>CFBundleIdentifier</key>
     <string>com.indianwhisper.app</string>
+    <key>SupabaseURL</key>
+    <string>https://drcadhtbrbyefkjqbjjv.supabase.co</string>
+    <key>SupabaseAnonKey</key>
+    <string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyY2FkaHRicmJ5ZWZranFiamp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MDkwMjcsImV4cCI6MjA5MjE4NTAyN30.XbyggACaUBsc5Y0lTyfi--v9KEfqBRC6HWUx_vICfwY</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
