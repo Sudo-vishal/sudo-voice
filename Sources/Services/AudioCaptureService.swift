@@ -15,12 +15,29 @@ final class AudioCaptureService {
     // Smart VAD — pause detection
     private var voiceDetected = false
     private var silenceDuration: TimeInterval = 0
-    private let silencePauseThreshold: TimeInterval = 0.2  // 200ms silence = user paused (faster response)
-    private let minChunkDuration: TimeInterval = 0.3       // Don't emit chunks shorter than 0.3s
-    private let maxChunkDuration: TimeInterval = 6.0       // Force-emit after 6s (was 15s — reduces delay)
+    private var silencePauseThreshold: TimeInterval = 0.8
+    private var minChunkDuration: TimeInterval = 2.0
+    private var maxChunkDuration: TimeInterval = 12.0
 
-    // Callback
+    /// Configure VAD thresholds — call before startRecording
+    func configureForCloudMode(_ cloud: Bool) {
+        if cloud {
+            // Cloud: short chunks for near real-time feel
+            silencePauseThreshold = 0.15 // 150ms pause = send immediately
+            minChunkDuration = 0.3       // 0.3s min — even single words work
+            maxChunkDuration = 3.0       // 3s max — halves the wait time
+        } else {
+            // Local (WhisperKit): needs longer chunks for accuracy
+            silencePauseThreshold = 0.8  // 800ms pause
+            minChunkDuration = 2.0       // 2s min
+            maxChunkDuration = 12.0      // 12s max
+        }
+    }
+
+    // Callbacks
     private var onChunkReady: (([Float]) -> Void)?
+    /// Streaming mode: fires for every converted buffer (no VAD batching)
+    var onAudioStream: (([Float]) -> Void)?
 
     // Reconnection state
     private var lastChunkDuration: Double = 2.0
@@ -331,8 +348,15 @@ final class AudioCaptureService {
 
         let frameCount = Int(converted.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData, count: frameCount))
-        let bufferDuration = Double(frameCount) / targetFormat.sampleRate
         lastBufferTime = Date()  // Watchdog heartbeat
+
+        // Streaming mode: forward every buffer directly (Gemini Live handles VAD)
+        if let streamCallback = onAudioStream {
+            streamCallback(samples)
+            return
+        }
+
+        let bufferDuration = Double(frameCount) / targetFormat.sampleRate
 
         // Calculate RMS energy for VAD
         var rms: Float = 0

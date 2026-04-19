@@ -49,11 +49,9 @@ struct MenuBarView: View {
                 .lineLimit(3)
         }
 
-        // Free tier usage
-        if !appState.isPro {
-            Text("\(String(format: "%.0f", appState.freeMinutesRemaining)) min remaining today")
-                .font(.caption)
-        }
+        Text("Community Edition")
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
         Divider()
 
@@ -61,34 +59,26 @@ struct MenuBarView: View {
         Button(appState.isRecording ? "Stop Recording (\(hotkeyLabel))" : "Start Recording (\(hotkeyLabel))") {
             appState.toggleRecording()
         }
-        .disabled(!appState.isModelLoaded || appState.isFreeTierExhausted)
-
-        if appState.isFreeTierExhausted {
-            Text("Daily limit reached. Upgrade to Pro!")
-                .foregroundStyle(.red)
-                .font(.caption)
-        }
+        .disabled(!appState.isModelLoaded)
 
         Divider()
 
         Picker("Model", selection: Binding(
             get: { appState.selectedModel },
             set: { newVal in
-                guard newVal.isFree || appState.isPro else { return }
                 appState.selectedModel = newVal
                 Task { await appState.loadModel() }
             }
         )) {
             ForEach(WhisperModelSize.allCases) { model in
-                HStack {
-                    Text(model.displayName)
-                    if !model.isFree && !appState.isPro {
-                        Text("(PRO)")
-                    }
-                }
-                .tag(model)
+                Text(model.displayName).tag(model)
             }
         }
+
+        Toggle("Cloud Transcription", isOn: Binding(
+            get: { appState.useCloudTranscription },
+            set: { appState.useCloudTranscription = $0 }
+        ))
 
         Toggle("Hindi Mode", isOn: Binding(
             get: { appState.hindiMode },
@@ -155,14 +145,11 @@ struct MenuBarView: View {
             }
         }
 
-        // Pro status
-        if appState.isPro {
-            Text("Pro")
-                .font(.caption)
-        } else {
-            Button("Upgrade to Pro...") {
-                if let url = URL(string: "https://indianwhisper.com") {
-                    NSWorkspace.shared.open(url)
+        if UpdateService.shared.updateAvailable {
+            Divider()
+            Button("Update Available: v\(UpdateService.shared.latestVersion)") {
+                Task { @MainActor in
+                    UpdateService.shared.showUpdateAlert()
                 }
             }
         }

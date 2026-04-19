@@ -23,21 +23,16 @@ enum WhisperModelSize: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether this model is available on the free tier
-    var isFree: Bool {
-        switch self {
-        case .tiny, .base: return true
-        case .small, .largeTurbo, .large: return false
-        }
-    }
+    /// Community Edition: all models are free
+    var isFree: Bool { true }
 }
 
-// MARK: - Free Tier Limits
+// MARK: - Free Tier Limits (Community Edition: unlimited)
 
 enum FreeTierLimits {
-    static let minutesPerDay: Double = 30.0
-    static let llmCleanupsPerDay: Int = 20
-    static let maxDevices: Int = 1
+    static let minutesPerDay: Double = .infinity
+    static let llmCleanupsPerDay: Int = .max
+    static let maxDevices: Int = 999
 }
 
 // MARK: - Transcription Entry
@@ -83,7 +78,7 @@ final class AppState {
     // Settings (persisted via UserDefaults)
     var selectedModel: WhisperModelSize {
         get {
-            let model = WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "selectedModel") ?? "small") ?? .small
+            let model = WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "selectedModel") ?? "base") ?? .base
             let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
                 || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
             if devConfigExists { return model }
@@ -92,6 +87,25 @@ final class AppState {
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "selectedModel") }
     }
+
+    /// Cloud transcription via Gemini — better for Indian English, requires internet
+    /// Community Edition: default OFF (local-first, no API key needed)
+    var useCloudTranscription: Bool = {
+        return UserDefaults.standard.object(forKey: "useCloudTranscription") as? Bool ?? false
+    }() {
+        didSet {
+            UserDefaults.standard.set(useCloudTranscription, forKey: "useCloudTranscription")
+            // When switching to local mode, load the Whisper model if not already loaded
+            if !useCloudTranscription {
+                Task { await loadModel() }
+            }
+            // When switching to cloud, mark ready immediately
+            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
+                isModelLoaded = true
+            }
+        }
+    }
+
     var hindiMode: Bool {
         get { UserDefaults.standard.bool(forKey: "hindiMode") }
         set { UserDefaults.standard.set(newValue, forKey: "hindiMode") }
@@ -160,6 +174,12 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "customStyleInstructions") }
     }
 
+    /// Custom vocabulary — words the user frequently uses (helps transcription accuracy)
+    var customVocabulary: String {
+        get { UserDefaults.standard.string(forKey: "customVocabulary") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "customVocabulary") }
+    }
+
     var smartPunctuationEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "smartPunctuationEnabled") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "smartPunctuationEnabled") }
@@ -170,6 +190,16 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "scratchThatEnabled") }
     }
 
+    /// Text shown on the floating capsule while recording. Defaults to the
+    /// AIwithDhruv brand; any user can change it to their name in Settings.
+    var listeningLabel: String {
+        get {
+            let stored = UserDefaults.standard.string(forKey: "listeningLabel") ?? ""
+            return stored.isEmpty ? "AIwithDhruv" : stored
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "listeningLabel") }
+    }
+
     // MARK: - License & Usage Tracking
 
     var licenseKey: String {
@@ -177,9 +207,10 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "licenseKey") }
     }
 
+    /// Community Edition: Pro features unlocked for everyone
     var isPro: Bool {
-        get { UserDefaults.standard.bool(forKey: "isPro") }
-        set { UserDefaults.standard.set(newValue, forKey: "isPro") }
+        get { true }
+        set { /* Community Edition — always Pro */ }
     }
 
     var minutesTranscribedToday: Double {
@@ -325,6 +356,15 @@ final class AppState {
 
     var statusText: String {
         if isModelDownloading { return "Downloading model (\(Int(modelDownloadProgress * 100))%)..." }
+        if useCloudTranscription {
+            if geminiApiKey.isEmpty && openRouterApiKey.isEmpty { return "Set API key in Settings" }
+            if isRecording { return "Streaming (Cloud)..." }
+            if isProcessing { return "Transcribing..." }
+            if let hotkey = hotkeyService?.displayString {
+                return "Ready (Cloud) — \(hotkey) to start"
+            }
+            return "Ready (Cloud) — Cmd+D to start"
+        }
         if !isModelLoaded { return "Loading model..." }
         if isRecording { return "Listening..." }
         if isProcessing { return "Transcribing..." }
@@ -341,11 +381,14 @@ final class AppState {
     // Services
     var audioService: AudioCaptureService?
     var transcriptionService: TranscriptionService?
+    var geminiTranscriptionService: GeminiTranscriptionService?
+    var liveTranscriptionService: GeminiLiveTranscriptionService?
     var autoTypeService: AutoTypeService?
     var hotkeyService: HotkeyService?
     var floatingIndicator: FloatingIndicatorController?
     var llmCleanupService: LLMCleanupService?
     var licenseService: LicenseService?
+    var updateService: UpdateService?
 
     var showUpgradePrompt = false
 
@@ -374,6 +417,7 @@ final class AppState {
         logToFile("Mic permission checked")
 
         transcriptionService = TranscriptionService()
+        geminiTranscriptionService = GeminiTranscriptionService()
         audioService = AudioCaptureService()
         autoTypeService = AutoTypeService()
         llmCleanupService = LLMCleanupService()
@@ -416,11 +460,26 @@ final class AppState {
         }
         logToFile("Services initialized, hotkey registered")
 
-        await waitForNetwork()
-
-        do {
+        // If cloud mode, mark ready immediately (no model download needed)
+        let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
+        logToFile("Cloud check: useCloud=\(useCloudTranscription) geminiKey=\(geminiApiKey.isEmpty ? "EMPTY" : "SET(\(geminiApiKey.prefix(8))...)") openRouterKey=\(openRouterApiKey.isEmpty ? "EMPTY" : "SET")")
+        if useCloudTranscription && hasCloudKey {
+            await MainActor.run {
+                isModelLoaded = true
+            }
+            logToFile("Cloud transcription mode — ready (no local model needed)")
+        } else {
+            await waitForNetwork()
             await loadModel()
             logToFile("Model load complete")
+        }
+
+        logToFile("Setup done. Model loaded: \(isModelLoaded)")
+
+        // Check for app updates (non-blocking)
+        updateService = UpdateService.shared
+        Task.detached {
+            await UpdateService.shared.checkForUpdates()
         }
     }
 
@@ -504,13 +563,68 @@ final class AppState {
 
     @MainActor
     func startRecording() {
-        guard isModelLoaded else { return }
+        // Cloud mode doesn't need local model
+        let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
+        guard isModelLoaded || (useCloudTranscription && hasCloudKey) else { return }
+
         isRecording = true
+        if useCloudTranscription && hasCloudKey {
+            isModelLoaded = true  // ensure UI shows ready
+        }
         floatingIndicator?.update(isRecording: true, isProcessing: false)
 
         // Reset scratch-that tracking for new session
         recentOutputLengths.removeAll()
         sessionTotalChars = 0
+
+        let isCloudMode = useCloudTranscription && hasCloudKey
+
+        // Configure audio thresholds based on transcription mode
+        audioService?.configureForCloudMode(isCloudMode)
+
+        if isCloudMode {
+            // STREAMING MODE: Gemini Live API via WebSocket
+            let service = GeminiLiveTranscriptionService()
+            liveTranscriptionService = service
+
+            // Handle transcription text from Gemini Live
+            service.onTranscription = { [weak self] text in
+                Task { @MainActor [weak self] in
+                    self?.handleLiveTranscription(text)
+                }
+            }
+
+            // Connect to Gemini Live, then start audio streaming
+            Task {
+                do {
+                    try await service.connect(
+                        apiKey: geminiApiKey,
+                        language: language,
+                        customInstructions: customStyleInstructions
+                    )
+
+                    // Stream audio directly to Gemini Live (no VAD batching)
+                    await MainActor.run {
+                        audioService?.onAudioStream = { [weak service] samples in
+                            service?.sendAudio(samples)
+                        }
+                    }
+
+                    logToFile("Gemini Live streaming active")
+                } catch {
+                    logToFile("Gemini Live connect failed: \(error) — falling back to REST")
+                    // Fallback: disable streaming, use normal chunk-based REST
+                    await MainActor.run {
+                        audioService?.onAudioStream = nil
+                        liveTranscriptionService = nil
+                    }
+                }
+            }
+        } else {
+            // LOCAL MODE: normal VAD chunking
+            audioService?.onAudioStream = nil
+            liveTranscriptionService = nil
+        }
 
         do {
             try audioService?.startRecording(
@@ -532,14 +646,103 @@ final class AppState {
         isRecording = false
         floatingIndicator?.hide()
 
+        // Disconnect Gemini Live streaming
+        audioService?.onAudioStream = nil
+        liveTranscriptionService?.disconnect()
+        liveTranscriptionService = nil
+
         if let remaining = audioService?.stopRecording() {
-            Task {
-                await processChunk(remaining)
+            // Only process remaining chunk for local mode (no live service)
+            if !useCloudTranscription || (geminiApiKey.isEmpty && openRouterApiKey.isEmpty) {
+                Task {
+                    await processChunk(remaining)
+                }
             }
         }
     }
 
-    // MARK: - Transcription Pipeline
+    // MARK: - Live Streaming Pipeline
+
+    /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
+    @MainActor
+    private func handleLiveTranscription(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+
+        guard !trimmed.isEmpty else { return }
+
+        // Hallucination filter
+        let hallucinations: Set<String> = [
+            ".", "..", "...", "thank you.", "thanks for watching!",
+            "thank you for watching!", "bye.", "bye!", "you",
+            "thanks.", "thank you", "thanks for watching.",
+            "subscribe", "like and subscribe", "mm.", "hmm.",
+            "mm", "hmm", "uh", "um", "ah", "oh",
+        ]
+        if hallucinations.contains(lower) { return }
+
+        // Skip noise descriptions
+        if (lower.hasPrefix("(") && lower.hasSuffix(")")) ||
+           (lower.hasPrefix("[") && lower.hasSuffix("]")) ||
+           (lower.hasPrefix("*") && lower.hasSuffix("*")) { return }
+
+        // Voice command detection
+        if scratchThatEnabled {
+            let command = VoiceCommandService.detect(trimmed)
+            switch command {
+            case .scratchThat:
+                if let lastLength = recentOutputLengths.popLast() {
+                    autoTypeService?.deleteCharacters(lastLength)
+                    sessionTotalChars -= lastLength
+                    logToFile("SCRATCH THAT: deleted \(lastLength) chars")
+                }
+                return
+            case .deleteWord:
+                autoTypeService?.deleteLastWord()
+                logToFile("DELETE WORD")
+                return
+            case .clearAll:
+                if sessionTotalChars > 0 {
+                    autoTypeService?.deleteCharacters(sessionTotalChars)
+                    logToFile("CLEAR ALL: deleted \(sessionTotalChars) chars")
+                    sessionTotalChars = 0
+                    recentOutputLengths.removeAll()
+                }
+                return
+            case .none:
+                break
+            }
+        }
+
+        // Smart punctuation
+        let finalText = smartPunctuationEnabled ? SmartPunctuationService.apply(trimmed) : trimmed
+
+        // Update state
+        lastTranscription = finalText
+
+        // History
+        transcriptionHistory.insert(
+            TranscriptionEntry(originalText: trimmed, cleanedText: finalText),
+            at: 0
+        )
+        if transcriptionHistory.count > 100 {
+            transcriptionHistory = Array(transcriptionHistory.prefix(100))
+        }
+        saveHistory()
+
+        // Auto-type
+        if autoTypeEnabled {
+            let textToType = finalText + " "
+            autoTypeService?.typeText(textToType)
+            recentOutputLengths.append(textToType.count)
+            sessionTotalChars += textToType.count
+            if recentOutputLengths.count > 20 {
+                recentOutputLengths.removeFirst()
+            }
+        }
+    }
+
+    // MARK: - Batch Transcription Pipeline
 
     func processChunk(_ samples: [Float]) async {
         resetDailyUsageIfNeeded()
@@ -565,13 +768,43 @@ final class AppState {
         let chunkSeconds = Double(samples.count) / 16000.0
         trackTranscriptionTime(seconds: chunkSeconds)
 
-        do {
-            let text = try await transcriptionService?.transcribe(
-                audioSamples: samples,
-                language: language
-            ) ?? ""
+        // Quick energy check — skip API call if chunk is pure silence
+        var rms: Float = 0
+        samples.withUnsafeBufferPointer { ptr in
+            var sum: Float = 0
+            for s in ptr { sum += s * s }
+            rms = sqrt(sum / Float(ptr.count))
+        }
+        if rms < 0.005 {
+            logToFile("Skipping silence chunk (rms=\(String(format: "%.4f", rms)), dur=\(String(format: "%.1f", chunkSeconds))s)")
+            await MainActor.run { isProcessing = false }
+            return
+        }
 
-            let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        do {
+            let trimmed: String
+
+            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
+                // CLOUD PATH: OpenRouter or Gemini does transcription + cleanup in one call
+                let result = try await geminiTranscriptionService?.transcribe(
+                    audioSamples: samples,
+                    language: language,
+                    apiKey: geminiApiKey,
+                    openRouterKey: openRouterApiKey,
+                    customInstructions: customStyleInstructions,
+                    vocabulary: customVocabulary
+                ) ?? ""
+                logToFile("Gemini cloud: \"\(result.prefix(80))\" (rms=\(String(format: "%.3f", rms)) dur=\(String(format: "%.1f", chunkSeconds))s)")
+                trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                // LOCAL PATH: WhisperKit + optional LLM cleanup
+                let text = try await transcriptionService?.transcribe(
+                    audioSamples: samples,
+                    language: language
+                ) ?? ""
+                trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            }
+
             let lower = trimmed.lowercased()
 
             guard !trimmed.isEmpty else {
@@ -647,30 +880,36 @@ final class AppState {
             }
 
             // Save raw text for history
-            let rawWhisperText = trimmed
+            let rawText = trimmed
 
-            // FEATURE 2: LLM cleanup with selected provider + FEATURE 1: custom instructions
-            let wordCount = trimmed.split(separator: " ").count
-            logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
+            // LLM cleanup — only for LOCAL path (cloud already does cleanup)
             let llmOutput: String
-            if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
-                llmCleanupsToday += 1
-                let cleaned = await llmCleanupService?.cleanWithProvider(
-                    trimmed,
-                    provider: selectedLLMProvider,
-                    apiKeys: allAPIKeys(),
-                    customInstructions: customStyleInstructions
-                ) ?? trimmed
-                if cleaned.isEmpty {
-                    await MainActor.run { isProcessing = false }
-                    return
-                }
-                llmOutput = cleaned
-            } else {
+            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
+                // Cloud path: already cleaned the text
                 llmOutput = trimmed
+            } else {
+                // Local path: optional LLM cleanup
+                let wordCount = trimmed.split(separator: " ").count
+                logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
+                if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
+                    llmCleanupsToday += 1
+                    let cleaned = await llmCleanupService?.cleanWithProvider(
+                        trimmed,
+                        provider: selectedLLMProvider,
+                        apiKeys: allAPIKeys(),
+                        customInstructions: customStyleInstructions
+                    ) ?? trimmed
+                    if cleaned.isEmpty {
+                        await MainActor.run { isProcessing = false }
+                        return
+                    }
+                    llmOutput = cleaned
+                } else {
+                    llmOutput = trimmed
+                }
             }
 
-            // FEATURE 4: Smart punctuation (AFTER LLM cleanup)
+            // FEATURE 4: Smart punctuation (AFTER cleanup)
             let finalText: String
             if smartPunctuationEnabled {
                 finalText = SmartPunctuationService.apply(llmOutput)
@@ -683,7 +922,7 @@ final class AppState {
 
                 // FEATURE 3: History with original + cleaned text
                 transcriptionHistory.insert(
-                    TranscriptionEntry(originalText: rawWhisperText, cleanedText: finalText),
+                    TranscriptionEntry(originalText: rawText, cleanedText: finalText),
                     at: 0
                 )
                 if transcriptionHistory.count > 100 {
@@ -711,6 +950,7 @@ final class AppState {
             }
         } catch {
             print("[IndianWhisper] Transcription error: \(error)")
+            logToFile("Transcription error: \(error)")
             await MainActor.run {
                 isProcessing = false
                 if !isRecording { floatingIndicator?.hide() }

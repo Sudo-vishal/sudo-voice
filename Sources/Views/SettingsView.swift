@@ -22,9 +22,8 @@ struct SettingsView: View {
                 .environment(appState)
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
 
-            LicenseTab()
-                .environment(appState)
-                .tabItem { Label("License", systemImage: "key") }
+            AboutTab()
+                .tabItem { Label("About", systemImage: "info.circle") }
         }
         .frame(minWidth: 540, minHeight: 480)
     }
@@ -99,6 +98,25 @@ private struct GeneralTab: View {
                     Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
                 }
 
+                GroupBox("Brand") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Capsule label:")
+                                .frame(width: 110, alignment: .trailing)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            TextField("AIwithDhruv", text: $state.listeningLabel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                        Text("Shown on the floating capsule while recording. Put your name, your brand, anything up to ~14 characters so it fits.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 116)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 GroupBox("Text Processing") {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Smart Punctuation", isOn: $state.smartPunctuationEnabled)
@@ -157,13 +175,6 @@ private struct LLMTab: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Enable LLM text cleanup", isOn: $state.llmCleanupEnabled)
 
-                        if !appState.isPro {
-                            let remaining = appState.freeLLMCleanupsRemaining
-                            Text("\(remaining) cleanups remaining today")
-                                .font(.caption)
-                                .foregroundStyle(remaining > 5 ? Color.secondary : Color.orange)
-                        }
-
                         Picker("Provider", selection: $state.selectedLLMProvider) {
                             ForEach(LLMProvider.allCases) { provider in
                                 Text("\(provider.displayName) · \(provider.modelName) · \(provider.latencyEstimate)")
@@ -199,6 +210,18 @@ private struct LLMTab: View {
                             .textFieldStyle(.roundedBorder)
                             .lineLimit(2...4)
                         Text("Appended to the LLM system prompt for style/tone control.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("Custom Vocabulary") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("e.g. Kubernetes, Terraform, Netlify, Vite", text: $state.customVocabulary, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(2...4)
+                        Text("Comma-separated words you use often. Helps fix misheard tech terms, names, etc.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -254,27 +277,11 @@ private struct ModelsTab: View {
         Form {
             Picker("Active Model", selection: $state.selectedModel) {
                 ForEach(WhisperModelSize.allCases) { model in
-                    HStack {
-                        Text(model.displayName)
-                        if !model.isFree && !appState.isPro {
-                            Text("PRO")
-                                .font(.caption2.bold())
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    .tag(model)
+                    Text(model.displayName).tag(model)
                 }
             }
-            .onChange(of: appState.selectedModel) { _, newModel in
-                if newModel.isFree || appState.isPro {
-                    Task { await appState.loadModel() }
-                }
-            }
-
-            if !appState.isPro {
-                Text("Free tier: Tiny & Base only. Upgrade to Pro for all models.")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+            .onChange(of: appState.selectedModel) { _, _ in
+                Task { await appState.loadModel() }
             }
 
             if appState.isModelDownloading {
@@ -287,11 +294,6 @@ private struct ModelsTab: View {
                 ForEach(WhisperModelSize.allCases) { model in
                     HStack {
                         Text(model.displayName)
-                        if !model.isFree {
-                            Text("PRO")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
                         Spacer()
                         if appState.transcriptionService?.isModelDownloaded(model) == true {
                             Text("Downloaded")
@@ -303,7 +305,6 @@ private struct ModelsTab: View {
                                 .font(.caption)
                         }
                     }
-                    .opacity(!model.isFree && !appState.isPro ? 0.5 : 1.0)
                 }
             }
 
@@ -409,108 +410,77 @@ private struct HistoryTab: View {
     }
 }
 
-// MARK: - License
+// MARK: - About
 
-private struct LicenseTab: View {
-    @Environment(AppState.self) private var appState
-    @State private var licenseInput = ""
-    @State private var activating = false
-    @State private var message = ""
+private struct AboutTab: View {
+    @State private var checkingUpdate = false
+    @State private var checkedOnce = false
 
     var body: some View {
-        Form {
-            HStack {
-                Text("Status:")
-                if appState.isPro {
-                    Label("Pro", systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                        .font(.body.bold())
-                } else {
-                    Text("Free")
-                        .foregroundStyle(.secondary)
-                }
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "mic.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.blue)
+
+            Text("IndianWhisper")
+                .font(.title.bold())
+
+            Text("Community Edition")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text("v\(UpdateService.shared.currentVersion)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            VStack(spacing: 8) {
+                Text("100% on-device voice transcription powered by WhisperKit.")
+                    .multilineTextAlignment(.center)
+                Text("Your voice data never leaves your computer.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
             }
+            .font(.callout)
+            .padding(.horizontal, 40)
 
-            if !appState.isPro {
-                Section("Daily Usage") {
-                    HStack {
-                        Text("Transcription")
-                        Spacer()
-                        Text("\(String(format: "%.1f", appState.minutesTranscribedToday)) / \(Int(FreeTierLimits.minutesPerDay)) min")
-                            .foregroundStyle(appState.isFreeTierExhausted ? .red : .secondary)
-                    }
-                    ProgressView(value: min(appState.minutesTranscribedToday, FreeTierLimits.minutesPerDay), total: FreeTierLimits.minutesPerDay)
-                        .tint(appState.isFreeTierExhausted ? .red : .blue)
-
-                    HStack {
-                        Text("LLM Cleanups")
-                        Spacer()
-                        Text("\(appState.llmCleanupsToday) / \(FreeTierLimits.llmCleanupsPerDay)")
-                            .foregroundStyle(!appState.canUseLLMCleanup ? .red : .secondary)
-                    }
-                }
-            }
-
-            Section("License Key") {
-                TextField("Enter license key", text: $licenseInput)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .onAppear { licenseInput = appState.licenseKey }
-
-                if !message.isEmpty {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(appState.isPro ? .green : .red)
-                }
-
-                HStack {
-                    Button(activating ? "Activating..." : "Activate License") {
-                        activateKey()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(licenseInput.isEmpty || activating)
-
-                    if appState.isPro {
-                        Button("Deactivate") {
-                            appState.licenseKey = ""
-                            appState.isPro = false
-                            licenseInput = ""
-                            message = ""
+            // Check for Updates
+            Button(checkingUpdate ? "Checking..." : "Check for Updates") {
+                checkingUpdate = true
+                Task {
+                    await UpdateService.shared.checkForUpdates(force: true)
+                    await MainActor.run {
+                        checkingUpdate = false
+                        checkedOnce = true
+                        if UpdateService.shared.updateAvailable {
+                            UpdateService.shared.showUpdateAlert()
                         }
-                        .buttonStyle(.bordered)
-                        .foregroundStyle(.red)
                     }
                 }
             }
+            .buttonStyle(.bordered)
+            .font(.caption)
+            .disabled(checkingUpdate)
 
-            if !appState.isPro {
-                Section {
-                    Text("Get Pro: Unlimited transcription, all models, unlimited LLM cleanup")
-                        .font(.caption)
-                    Link("Buy at indianwhisper.com", destination: URL(string: "https://indianwhisper.com")!)
-                        .font(.caption)
-                }
+            if checkedOnce && !UpdateService.shared.updateAvailable {
+                Text("You're on the latest version")
+                    .font(.caption)
+                    .foregroundStyle(.green)
             }
-        }
-        .padding()
-    }
 
-    private func activateKey() {
-        activating = true
-        message = ""
-        Task {
-            let result = await appState.licenseService?.activate(licenseInput) ?? (success: false, message: "Service unavailable")
-            await MainActor.run {
-                activating = false
-                if result.0 {
-                    appState.licenseKey = licenseInput
-                    appState.isPro = true
-                    message = "Pro activated!"
-                } else {
-                    message = result.1
-                }
+            Divider().padding(.horizontal, 60)
+
+            VStack(spacing: 4) {
+                Text("Built by AiwithDhruv")
+                    .font(.caption.bold())
+                Link("youtube.com/@AiwithDhruv", destination: URL(string: "https://youtube.com/@AiwithDhruv")!)
+                    .font(.caption)
             }
+
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

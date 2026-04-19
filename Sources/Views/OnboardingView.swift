@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First-run onboarding: Microphone → Accessibility → Model Pick → License/Start Free
+/// First-run onboarding: Microphone → Accessibility → Model Pick → Ready!
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @State private var currentStep = 0
@@ -11,7 +11,7 @@ struct OnboardingView: View {
             HStack {
                 Text("IndianWhisper")
                     .font(.title2.bold())
-                Text("by AiwithDhruv")
+                Text("Community Edition")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -19,7 +19,7 @@ struct OnboardingView: View {
 
             // Step indicator
             HStack(spacing: 8) {
-                ForEach(0..<4, id: \.self) { i in
+                ForEach(0..<3, id: \.self) { i in
                     Circle()
                         .fill(i <= currentStep ? Color.accentColor : Color.gray.opacity(0.3))
                         .frame(width: 8, height: 8)
@@ -34,8 +34,7 @@ struct OnboardingView: View {
                 switch currentStep {
                 case 0: MicrophoneStep(onNext: { currentStep = 1 })
                 case 1: AccessibilityStep(onNext: { currentStep = 2 })
-                case 2: ModelStep(onNext: { currentStep = 3 })
-                case 3: LicenseStep(onComplete: completeOnboarding)
+                case 2: ModelStep(onNext: { completeOnboarding() })
                 default: EmptyView()
                 }
             }
@@ -181,12 +180,12 @@ private struct ModelStep: View {
                             .foregroundStyle(appState.selectedModel == model ? .blue : .gray)
                         Text(model.displayName)
                         Spacer()
-                        if !model.isFree && !appState.isPro {
-                            Text("PRO")
+                        if model == .base {
+                            Text("RECOMMENDED")
                                 .font(.caption2.bold())
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(.yellow.opacity(0.2))
+                                .background(.green.opacity(0.2))
                                 .clipShape(Capsule())
                         }
                     }
@@ -196,19 +195,21 @@ private struct ModelStep: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        if model.isFree || appState.isPro {
-                            appState.selectedModel = model
-                        }
+                        appState.selectedModel = model
                     }
-                    .opacity(!model.isFree && !appState.isPro ? 0.5 : 1.0)
                 }
             }
+
+            Text("All models are free. Your voice data never leaves your computer.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
             Spacer()
 
             HStack {
                 Spacer()
-                Button("Next") { onNext() }
+                Button("Start Using IndianWhisper") { onNext() }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -216,96 +217,4 @@ private struct ModelStep: View {
     }
 }
 
-// MARK: - Step 4: License
-
-private struct LicenseStep: View {
-    @Environment(AppState.self) private var appState
-    let onComplete: () -> Void
-    @State private var licenseInput = ""
-    @State private var activating = false
-    @State private var message = ""
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "key.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.green)
-
-            Text("Activate Pro (Optional)")
-                .font(.headline)
-
-            Text("Enter your license key to unlock all models, unlimited transcription, and more. Or start free with 30 min/day.")
-                .multilineTextAlignment(.center)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            TextField("License key", text: $licenseInput)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.body, design: .monospaced))
-
-            if !message.isEmpty {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(appState.isPro ? .green : .red)
-            }
-
-            if activating {
-                ProgressView()
-                    .scaleEffect(0.8)
-            }
-
-            // Free tier info
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Free tier includes:")
-                    .font(.caption.bold())
-                Text("  30 min/day  ·  Tiny & Base models  ·  20 LLM cleanups/day")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(.quaternary)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            Spacer()
-
-            HStack {
-                Button("Start Free") {
-                    onComplete()
-                }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                Button("Activate") {
-                    activateKey()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(licenseInput.isEmpty || activating)
-            }
-        }
-        .padding(.bottom, 16)
-    }
-
-    private func activateKey() {
-        activating = true
-        message = ""
-        Task {
-            let result = await appState.licenseService?.activate(licenseInput) ?? (success: false, message: "Service unavailable")
-            await MainActor.run {
-                activating = false
-                if result.0 {
-                    appState.licenseKey = licenseInput
-                    appState.isPro = true
-                    message = "Pro activated!"
-                    // Auto-complete after short delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        onComplete()
-                    }
-                } else {
-                    message = result.1
-                }
-            }
-        }
-    }
-}
+// LicenseStep removed — Community Edition is fully free

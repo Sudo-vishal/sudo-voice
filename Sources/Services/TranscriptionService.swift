@@ -4,7 +4,7 @@ import Foundation
 final class TranscriptionService {
     private var whisperKit: WhisperKit?
 
-    /// Load a Whisper model. Downloads from HuggingFace on first use.
+    /// Load a Whisper model. Let WhisperKit handle caching + download.
     func loadModel(
         _ model: WhisperModelSize,
         onProgress: @escaping (Double) -> Void
@@ -12,10 +12,11 @@ final class TranscriptionService {
         // Release previous model
         whisperKit = nil
 
-        // Let WhisperKit handle download to its default cache location.
-        // Do NOT pass modelFolder — that tells it to look locally only.
+        let modelName = "openai_whisper-\(model.rawValue)"
+        logToFile("Initializing WhisperKit with model: \(modelName)")
+
         let config = WhisperKitConfig(
-            model: "openai_whisper-\(model.rawValue)",
+            model: modelName,
             verbose: true,
             logLevel: .info,
             prewarm: true,
@@ -24,6 +25,7 @@ final class TranscriptionService {
         )
 
         whisperKit = try await WhisperKit(config)
+        logToFile("WhisperKit initialized successfully")
     }
 
     /// Transcribe audio samples (16kHz mono Float32)
@@ -62,10 +64,10 @@ final class TranscriptionService {
 
     /// Check if a model is downloaded locally
     func isModelDownloaded(_ model: WhisperModelSize) -> Bool {
-        // WhisperKit caches in HuggingFace hub cache
-        let hubCache = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/huggingface/hub")
-        return FileManager.default.fileExists(atPath: hubCache.path)
+        let modelName = "openai_whisper-\(model.rawValue)"
+        let localPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/huggingface/models/argmaxinc/whisperkit-coreml/\(modelName)")
+        return FileManager.default.fileExists(atPath: localPath.path)
     }
 }
 

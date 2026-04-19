@@ -14,9 +14,9 @@
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
-    <key>SUFeedURL</key>
-    <string>https://indianwhisper.com/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string></string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
