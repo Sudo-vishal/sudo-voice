@@ -1,35 +1,49 @@
 import SwiftUI
 import Carbon
 
+private enum SettingsTab: Hashable {
+    case general, models, llm, history, about, license
+}
+
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @State private var selectedTab: SettingsTab = .general
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralTab()
                 .environment(appState)
                 .tabItem { Label("General", systemImage: "gear") }
+                .tag(SettingsTab.general)
 
             ModelsTab()
                 .environment(appState)
                 .tabItem { Label("Models", systemImage: "cpu") }
+                .tag(SettingsTab.models)
 
             LLMTab()
                 .environment(appState)
                 .tabItem { Label("AI Cleanup", systemImage: "sparkles") }
+                .tag(SettingsTab.llm)
 
             HistoryTab()
                 .environment(appState)
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(SettingsTab.history)
 
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
+                .tag(SettingsTab.about)
 
             LicenseTab()
                 .environment(appState)
                 .tabItem { Label("License", systemImage: "key.fill") }
+                .tag(SettingsTab.license)
         }
         .frame(minWidth: 540, minHeight: 480)
+        .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
+            selectedTab = .license
+        }
     }
 }
 

@@ -60,6 +60,7 @@ struct UpgradeSheet: View {
                 .buttonStyle(.plain)
 
                 Button("I'll enter my key in Settings") {
+                    NotificationCenter.default.post(name: .openLicenseSettings, object: nil)
                     UpgradeWindowController.shared.close()
                 }
                 .buttonStyle(.bordered)
