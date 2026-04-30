@@ -23,16 +23,21 @@ enum WhisperModelSize: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Community Edition: all models are free
-    var isFree: Bool { true }
+    /// Free tier: Tiny + Base only. Small / Large V3 Turbo / Large V3 require Pro.
+    var isFree: Bool {
+        switch self {
+        case .tiny, .base: return true
+        case .small, .largeTurbo, .large: return false
+        }
+    }
 }
 
-// MARK: - Free Tier Limits (Community Edition: unlimited)
+// MARK: - Free Tier Limits
 
 enum FreeTierLimits {
-    static let minutesPerDay: Double = .infinity
-    static let llmCleanupsPerDay: Int = .max
-    static let maxDevices: Int = 999
+    static let minutesPerDay: Double = 60.0    // 60 min/day local transcription
+    static let llmCleanupsPerDay: Int = 3      // 3 Gemini/Groq cleanups/day
+    static let maxDevices: Int = 3             // 3 active devices on a single license
 }
 
 // MARK: - Transcription Entry
@@ -207,10 +212,15 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "licenseKey") }
     }
 
-    /// Community Edition: Pro features unlocked for everyone
+    /// Pro = validated license key. Dev mode (.env present) auto-Pro for the developer.
     var isPro: Bool {
-        get { true }
-        set { /* Community Edition — always Pro */ }
+        get {
+            if isDevMode { return true }
+            return UserDefaults.standard.bool(forKey: "isPro")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "isPro")
+        }
     }
 
     var minutesTranscribedToday: Double {
