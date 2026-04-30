@@ -1,13 +1,19 @@
 import SwiftUI
 import Carbon
 
-private enum SettingsTab: Hashable {
+private enum SettingsTab: String, Hashable {
     case general, models, llm, history, about, account, license
 }
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedTab: SettingsTab = .general
+    @State private var selectedTab: SettingsTab = {
+        if let raw = UserDefaults.standard.string(forKey: "settingsLastTab"),
+           let tab = SettingsTab(rawValue: raw) {
+            return tab
+        }
+        return .general
+    }()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -48,6 +54,9 @@ struct SettingsView: View {
         .frame(minWidth: 540, minHeight: 480)
         .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
             selectedTab = .license
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            UserDefaults.standard.set(newTab.rawValue, forKey: "settingsLastTab")
         }
     }
 }
