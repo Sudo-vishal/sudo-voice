@@ -23,6 +23,7 @@ struct IndianWhisperApp: App {
         NSApplication.shared.setActivationPolicy(.accessory)
         logToFile("App init called")
         _ = SupabaseService.shared
+        bootstrapSettingsObserver()
         Task.detached {
             do {
                 logToFile("Starting setup...")

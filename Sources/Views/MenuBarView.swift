@@ -1,10 +1,38 @@
 import SwiftUI
 import AppKit
 
+extension Notification.Name {
+    /// Posted by UpgradeSheet's "I'll enter my key in Settings" button.
+    /// SettingsWindowManager opens the Settings window; SettingsView switches to the License tab.
+    static let openLicenseSettings = Notification.Name("indianwhisper.openLicenseSettings")
+}
+
+/// Force-instantiates `SettingsWindowManager.shared` so its NotificationCenter observer
+/// is live before the first UpgradeSheet can fire. Called once from app init.
+@MainActor
+func bootstrapSettingsObserver() {
+    _ = SettingsWindowManager.shared
+}
+
 /// Manages a standalone settings window (works with .accessory activation policy)
 private final class SettingsWindowManager {
     static let shared = SettingsWindowManager()
     private var window: NSWindow?
+    private var observer: NSObjectProtocol?
+
+    private init() {
+        observer = NotificationCenter.default.addObserver(
+            forName: .openLicenseSettings,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.open()
+        }
+    }
+
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+    }
 
     func open() {
         if let existing = window, existing.isVisible {
