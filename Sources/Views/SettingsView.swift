@@ -2,7 +2,7 @@ import SwiftUI
 import Carbon
 
 private enum SettingsTab: Hashable {
-    case general, models, llm, history, about, license
+    case general, models, llm, history, about, account, license
 }
 
 struct SettingsView: View {
@@ -39,6 +39,11 @@ struct SettingsView: View {
                 .environment(appState)
                 .tabItem { Label("License", systemImage: "key.fill") }
                 .tag(SettingsTab.license)
+
+            AccountTab()
+                .environment(appState)
+                .tabItem { Label("Account", systemImage: "person.crop.circle") }
+                .tag(SettingsTab.account)
         }
         .frame(minWidth: 540, minHeight: 480)
         .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
@@ -617,6 +622,86 @@ private struct LicenseTab: View {
                     appState.isPro = true
                 }
             }
+        }
+    }
+}
+
+// MARK: - Account Tab
+
+private struct AccountTab: View {
+    @Environment(AppState.self) private var appState
+    @State private var signedInEmail: String?
+    @State private var showSignIn = false
+    @State private var isLoading = true
+
+    /// Brand neon cyan #18D1E0 (Rule 58)
+    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GroupBox("Account") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if isLoading {
+                            HStack {
+                                ProgressView().controlSize(.small)
+                                Text("Checking sign-in state...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if let email = signedInEmail {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(Self.brandCyan)
+                                Text(email).font(.body)
+                                Spacer()
+                            }
+
+                            Button("Sign out") { signOut() }
+                                .buttonStyle(.bordered)
+
+                            Button("View linked devices") {
+                                // Placeholder — IW-007 will wire this to a real list
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                            .foregroundStyle(Self.brandCyan)
+                        } else {
+                            Text("You're not signed in.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                            Text("Sync your transcripts and license across all your devices.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Sign in") { showSignIn = true }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .padding()
+        }
+        .task { await refreshSignInState() }
+        .sheet(isPresented: $showSignIn, onDismiss: {
+            Task { await refreshSignInState() }
+        }) {
+            SignInView()
+        }
+    }
+
+    private func refreshSignInState() async {
+        let user = await SupabaseService.shared.currentUser
+        await MainActor.run {
+            signedInEmail = user?.email
+            isLoading = false
+        }
+    }
+
+    private func signOut() {
+        Task {
+            await SupabaseService.shared.signOut()
+            await refreshSignInState()
         }
     }
 }
