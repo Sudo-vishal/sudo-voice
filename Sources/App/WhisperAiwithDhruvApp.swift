@@ -29,6 +29,10 @@ struct IndianWhisperApp: App {
                 await sharedAppState.setup()
                 logToFile("Setup done. Model loaded: \(sharedAppState.isModelLoaded)")
 
+                await MainActor.run {
+                    UpgradePromptObserver.shared.start(state: sharedAppState)
+                }
+
                 // Show onboarding if first launch
                 if !sharedAppState.hasCompletedOnboarding {
                     await MainActor.run {
