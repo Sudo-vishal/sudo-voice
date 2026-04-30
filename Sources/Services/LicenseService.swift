@@ -100,6 +100,50 @@ final class LicenseService {
         }
     }
 
+    /// Deactivate a license on this device. Frees the device slot on the LS license
+    /// (3-device limit means user needs to deactivate before activating on a 4th Mac).
+    /// Clears all cache keys on success — next launch starts cleanly free-tier.
+    func deactivate(_ key: String) async -> (success: Bool, message: String) {
+        guard !key.isEmpty else { return (false, "No license key provided") }
+
+        let deactivateURL = "https://api.lemonsqueezy.com/v1/licenses/deactivate"
+        let instanceID = UserDefaults.standard.string(forKey: Keys.activationID) ?? ""
+        guard !instanceID.isEmpty else {
+            return (false, "No activation ID — already deactivated?")
+        }
+
+        var request = URLRequest(url: URL(string: deactivateURL)!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
+
+        let body = "license_key=\(key)&instance_id=\(instanceID)"
+        request.httpBody = body.data(using: .utf8)
+
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return (false, "Bad response format")
+            }
+
+            let deactivated = json["deactivated"] as? Bool ?? false
+            let msg = json["error"] as? String ?? (deactivated ? "License deactivated" : "Deactivation failed")
+
+            if deactivated {
+                // Full cache reset — next launch starts cleanly free-tier.
+                UserDefaults.standard.removeObject(forKey: Keys.activationID)
+                UserDefaults.standard.removeObject(forKey: Keys.cachedValid)
+                UserDefaults.standard.removeObject(forKey: Keys.lastValidation)
+                logToFile("License: deactivated successfully")
+            }
+
+            return (deactivated, msg)
+        } catch {
+            logToFile("License deactivation error: \(error.localizedDescription)")
+            return (false, "Network error: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Online Validation
 
     private func validateOnline(_ key: String) async throws -> Bool {
