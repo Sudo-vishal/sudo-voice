@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Network
+import Supabase
 
 // MARK: - Model Size
 
@@ -211,6 +212,13 @@ final class AppState {
         get { UserDefaults.standard.string(forKey: "licenseKey") ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: "licenseKey") }
     }
+
+    // MARK: - Auth state
+
+    /// Currently signed-in Supabase user, or nil when signed out.
+    /// Hydrated from Keychain at launch by `startAuthObserver()`, kept live by an
+    /// AsyncStream subscription on `SupabaseService.shared.authStateChanges()`.
+    var currentUser: User?
 
     /// Pro = validated license key. Dev mode (.env present) auto-Pro for the developer.
     var isPro: Bool {
@@ -433,6 +441,8 @@ final class AppState {
         llmCleanupService = LLMCleanupService()
         licenseService = LicenseService()
 
+        await startAuthObserver()
+
         if !licenseKey.isEmpty {
             let valid = await licenseService?.validate(licenseKey) ?? false
             await MainActor.run { isPro = valid }
@@ -490,6 +500,26 @@ final class AppState {
         updateService = UpdateService.shared
         Task.detached {
             await UpdateService.shared.checkForUpdates()
+        }
+    }
+
+    /// Hydrate `currentUser` from existing Supabase session on launch and listen
+    /// for future auth changes (sign-in, sign-out, token refresh).
+    @MainActor
+    func startAuthObserver() async {
+        // Pull initial state (Keychain-cached session, no network)
+        self.currentUser = await SupabaseService.shared.currentUser
+
+        // Listen for changes (infinite for-await loop, lives for app lifetime)
+        Task {
+            for await event in SupabaseService.shared.authStateChanges() {
+                await MainActor.run {
+                    Task {
+                        self.currentUser = await SupabaseService.shared.currentUser
+                        logToFile("AppState: auth state changed (\(event)) — currentUser=\(self.currentUser?.email ?? "nil")")
+                    }
+                }
+            }
         }
     }
 
