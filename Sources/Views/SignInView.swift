@@ -10,6 +10,7 @@ struct SignInView: View {
     @State private var step: SignInStep = .email
     @State private var isWorking = false
     @State private var errorMessage: String?
+    @State private var closeIsHovering = false
 
     /// Brand neon cyan #18D1E0 (Rule 58)
     private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
@@ -21,15 +22,32 @@ struct SignInView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            switch step {
-            case .email: emailStep
-            case .code: codeStep
-            case .signedIn: signedInStep
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 14) {
+                switch step {
+                case .email: emailStep
+                case .code: codeStep
+                case .signedIn: signedInStep
+                }
+            }
+            .frame(width: 380)
+            .padding(20)
+
+            // Close button — visible in all 3 states. SignInView is presented as a SwiftUI
+            // .sheet from SettingsView's AccountTab, so dismiss() is the right close path
+            // (per dispatch: "If it's a SwiftUI `.sheet`, use `dismiss` env action").
+            Button { dismiss() } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(closeIsHovering ? Self.brandCyan : Color(white: 0.6))
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+            .help("Close")
+            .onHover { hovering in
+                closeIsHovering = hovering
             }
         }
-        .frame(width: 380)
-        .padding(20)
     }
 
     // MARK: - Step 1: Email entry
