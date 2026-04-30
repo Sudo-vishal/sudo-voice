@@ -530,9 +530,25 @@ private struct LicenseTab: View {
     @State private var isActivating = false
     @State private var statusMessage: String?
     @State private var statusIsError = false
+    @State private var showingDeactivateConfirm = false
+    @State private var deactivateMessage: String?
 
     /// Brand neon cyan #18D1E0 (Rule 58)
     private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
+
+    /// Mirrors AppState.isDevMode (which is `private`) without modifying MAC-006 territory.
+    /// Same file-existence check as `selectedModel` getter (AppState.swift:82-83) and
+    /// `canUseLLMCleanup` getter (AppState.swift:251-252).
+    private var isDevModeBypass: Bool {
+        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+    }
+
+    /// Show Deactivate only when the user is actually Pro via a real license key
+    /// (hidden in dev-mode where isPro comes from .env, not the key).
+    private var shouldShowDeactivate: Bool {
+        appState.isPro && !appState.licenseKey.isEmpty && !isDevModeBypass
+    }
 
     var body: some View {
         @Bindable var state = appState
@@ -588,6 +604,35 @@ private struct LicenseTab: View {
                     .padding(.vertical, 4)
                 }
 
+                if shouldShowDeactivate {
+                    GroupBox("Manage Device") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Button("Deactivate this device") {
+                                showingDeactivateConfirm = true
+                            }
+                            .buttonStyle(.bordered)
+                            .confirmationDialog(
+                                "Deactivate this device?",
+                                isPresented: $showingDeactivateConfirm
+                            ) {
+                                Button("Deactivate", role: .destructive) {
+                                    deactivate()
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This frees a slot on your license. You can re-activate any time with the same key.")
+                            }
+
+                            if let msg = deactivateMessage {
+                                Text(msg)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 GroupBox("Get Pro") {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Unlock all 5 Whisper models, all 7 LLM providers, Gemini Live streaming, and unlimited transcription.")
@@ -601,6 +646,24 @@ private struct LicenseTab: View {
                 }
             }
             .padding()
+        }
+    }
+
+    private func deactivate() {
+        let key = appState.licenseKey
+        guard !key.isEmpty else { return }
+
+        deactivateMessage = nil
+        Task {
+            let result: (success: Bool, message: String) = await appState.licenseService?.deactivate(key)
+                ?? (success: false, message: "License service unavailable")
+            await MainActor.run {
+                deactivateMessage = result.message
+                if result.success {
+                    appState.isPro = false
+                    appState.licenseKey = ""
+                }
+            }
         }
     }
 
