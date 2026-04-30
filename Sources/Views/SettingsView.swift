@@ -24,6 +24,10 @@ struct SettingsView: View {
 
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
+
+            LicenseTab()
+                .environment(appState)
+                .tabItem { Label("License", systemImage: "key.fill") }
         }
         .frame(minWidth: 540, minHeight: 480)
     }
@@ -496,6 +500,109 @@ struct PermissionBadge: View {
             Text(granted ? "Granted" : "Not granted")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - License Tab
+
+private struct LicenseTab: View {
+    @Environment(AppState.self) private var appState
+    @State private var isActivating = false
+    @State private var statusMessage: String?
+    @State private var statusIsError = false
+
+    /// Brand neon cyan #18D1E0 (Rule 58)
+    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
+
+    var body: some View {
+        @Bindable var state = appState
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GroupBox("Status") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: appState.isPro ? "checkmark.seal.fill" : "lock.fill")
+                                .foregroundStyle(appState.isPro ? Self.brandCyan : .secondary)
+                            Text(appState.isPro ? "Pro" : "Free")
+                                .font(.headline)
+                            Spacer()
+                        }
+                        if !appState.isPro {
+                            Text("\(Int(appState.freeMinutesRemaining)) of 60 minutes remaining today")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("\(appState.freeLLMCleanupsRemaining) of 3 LLM cleanups remaining today")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("License Key") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            SecureField("Paste your license key", text: $state.licenseKey)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                                .disabled(isActivating)
+
+                            Button(isActivating ? "Activating..." : "Activate") {
+                                activateKey()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(state.licenseKey.isEmpty || isActivating)
+                        }
+
+                        if let msg = statusMessage {
+                            HStack(spacing: 4) {
+                                Image(systemName: statusIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                    .foregroundStyle(statusIsError ? .red : .green)
+                                Text(msg)
+                                    .font(.caption)
+                                    .foregroundStyle(statusIsError ? .red : .green)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("Get Pro") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Gemini Live streaming, and unlimited transcription.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Link("indianwhisper.com/pricing", destination: URL(string: "https://indianwhisper.com/pricing")!)
+                            .font(.caption)
+                            .foregroundStyle(Self.brandCyan)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private func activateKey() {
+        let key = appState.licenseKey
+        guard !key.isEmpty else { return }
+
+        isActivating = true
+        statusMessage = nil
+
+        Task {
+            let result: (success: Bool, message: String) = await appState.licenseService?.activate(key)
+                ?? (success: false, message: "License service unavailable")
+            await MainActor.run {
+                isActivating = false
+                statusMessage = result.message
+                statusIsError = !result.success
+                if result.success {
+                    appState.isPro = true
+                }
+            }
         }
     }
 }
