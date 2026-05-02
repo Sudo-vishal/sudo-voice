@@ -51,7 +51,7 @@ struct SettingsView: View {
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
                 .tag(SettingsTab.account)
         }
-        .frame(minWidth: 540, minHeight: 480)
+        .frame(minWidth: 760, minHeight: 480)
         .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
             selectedTab = .license
         }
