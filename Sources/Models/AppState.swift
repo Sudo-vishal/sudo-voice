@@ -770,6 +770,27 @@ final class AppState {
         }
         saveHistory()
 
+        // Cloud save (signed-in users only) — fire-and-forget, never block on network
+        if let user = currentUser {
+            let charCount = finalText.count
+            let wordCount = finalText.split(separator: " ").count
+            let language: String = hindiMode ? "hi-IN" : "en-IN"
+
+            Task.detached {
+                _ = await SupabaseService.shared.saveTranscript(
+                    rawText: trimmed,
+                    cleanedText: (finalText != trimmed) ? finalText : nil,
+                    language: language,
+                    modelUsed: "gemini-live",
+                    llmCleanupModel: nil,
+                    durationSeconds: nil,
+                    wordCount: wordCount,
+                    charCount: charCount
+                )
+            }
+            _ = user
+        }
+
         // Auto-type
         if autoTypeEnabled {
             let textToType = finalText + " "
@@ -969,6 +990,30 @@ final class AppState {
                     transcriptionHistory = Array(transcriptionHistory.prefix(100))
                 }
                 saveHistory()
+
+                // Cloud save (signed-in users only) — fire-and-forget, never block on network
+                if let user = currentUser {
+                    let charCount = finalText.count
+                    let wordCount = finalText.split(separator: " ").count
+                    let language: String = hindiMode ? "hi-IN" : "en-IN"
+                    let modelUsed: String = useCloudTranscription ? "gemini-cloud" : "whisper-\(selectedModel.rawValue)"
+                    let llmCleanup: String? = (llmCleanupEnabled && hasAnyLLMKey && wordCount >= 3) ? selectedLLMProvider.modelName : nil
+                    let durationInt: Int? = chunkSeconds > 0 ? Int(chunkSeconds) : nil
+
+                    Task.detached {
+                        _ = await SupabaseService.shared.saveTranscript(
+                            rawText: rawText,
+                            cleanedText: (finalText != rawText) ? finalText : nil,
+                            language: language,
+                            modelUsed: modelUsed,
+                            llmCleanupModel: llmCleanup,
+                            durationSeconds: durationInt,
+                            wordCount: wordCount,
+                            charCount: charCount
+                        )
+                    }
+                    _ = user
+                }
 
                 // Auto-type + FEATURE 5: track char count
                 if autoTypeEnabled {
