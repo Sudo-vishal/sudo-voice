@@ -147,7 +147,7 @@ echo "Signing..."
 # Use stable self-signed identity if present so TCC (Accessibility/Mic) persists
 # across rebuilds. Falls back to ad-hoc if identity missing. Run ./setup-signing.sh
 # once to create the identity.
-SIGN_ID=$(security find-certificate -c "IndianWhisper Dev" -Z 2>/dev/null | awk '/SHA-1 hash/{print $NF}')
+SIGN_ID=$(security find-certificate -c "IndianWhisper Dev" -Z 2>/dev/null | awk '/SHA-1 hash/{print $NF}' || true)
 if [ -n "$SIGN_ID" ]; then
     echo "  Using stable identity: $SIGN_ID (IndianWhisper Dev)"
     codesign --force --sign "$SIGN_ID" "$APP_PATH"
