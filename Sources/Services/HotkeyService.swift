@@ -1,6 +1,55 @@
 import Carbon
 import AppKit
 
+/// Push-to-talk modifier key choice. Modifier-only keys can't be registered
+/// via Carbon's RegisterEventHotKey, so we use NSEvent.addGlobalMonitorForEvents(.flagsChanged)
+/// and disambiguate via event.keyCode (left vs right Option, etc.).
+enum PTTKey: String, CaseIterable, Identifiable {
+    case disabled = "disabled"
+    case rightOption = "rightOption"
+    case leftOption = "leftOption"
+    case fn = "fn"
+    case rightCmd = "rightCmd"
+    case rightShift = "rightShift"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .disabled:    return "Off"
+        case .rightOption: return "Right Option (default)"
+        case .leftOption:  return "Left Option"
+        case .fn:          return "Fn"
+        case .rightCmd:    return "Right Command"
+        case .rightShift:  return "Right Shift"
+        }
+    }
+
+    /// macOS virtual key code matched against event.keyCode in .flagsChanged events.
+    var keyCode: Int {
+        switch self {
+        case .disabled:    return -1
+        case .rightOption: return 61   // 0x3D
+        case .leftOption:  return 58   // 0x3A
+        case .fn:          return 63   // 0x3F (may not fire on all Macs)
+        case .rightCmd:    return 54   // 0x36
+        case .rightShift:  return 60   // 0x3C
+        }
+    }
+
+    /// Modifier flag this key sets on press. We detect press via flag presence,
+    /// release via flag absence (combined with matching keyCode for left/right disambiguation).
+    var modifierFlag: NSEvent.ModifierFlags {
+        switch self {
+        case .rightOption, .leftOption: return .option
+        case .fn:                        return .function
+        case .rightCmd:                  return .command
+        case .rightShift:                return .shift
+        case .disabled:                  return []
+        }
+    }
+}
+
 /// Global hotkey service using Carbon API.
 /// Default: Cmd+D. Configurable via UserDefaults.
 final class HotkeyService {
@@ -8,6 +57,19 @@ final class HotkeyService {
     private static var onToggle: (() -> Void)?
     private static var lastFireTime: Date = .distantPast
     private static let debounceSec: TimeInterval = 0.3
+
+    // Push-to-talk state — separate from the Carbon-based Cmd+D toggle.
+    // Coexists with toggle hotkey: both fire independently.
+    private var pttMonitor: Any?
+    private var pttIsHeld = false
+    private var pttOnPress: (() -> Void)?
+    private var pttOnRelease: (() -> Void)?
+
+    /// Currently configured PTT key. Persisted in UserDefaults.
+    var pttKey: PTTKey {
+        get { PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "rightOption") ?? .rightOption }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "pttKey") }
+    }
 
     /// Current hotkey keycode (default: kVK_ANSI_D = 2)
     var keyCode: UInt32 {
@@ -107,11 +169,73 @@ final class HotkeyService {
 
     func unregister() {
         unregisterHotkey()
+        unregisterPTT()
         Self.onToggle = nil
     }
 
     deinit {
         unregister()
+    }
+
+    // MARK: - Push-to-talk (modifier-only key)
+
+    /// Register a push-to-talk modifier key. Coexists with the Cmd+D toggle.
+    /// onPress fires when the configured modifier transitions to held.
+    /// onRelease fires when it transitions to released.
+    /// Caller decides cancel-on-short-press semantics (we just report the edge transitions).
+    func registerPTT(onPress: @escaping () -> Void, onRelease: @escaping () -> Void) {
+        unregisterPTT()
+        self.pttOnPress = onPress
+        self.pttOnRelease = onRelease
+
+        guard pttKey != .disabled else {
+            logToFile("PTT disabled — no monitor installed")
+            return
+        }
+
+        let targetKeyCode = pttKey.keyCode
+        let targetFlag = pttKey.modifierFlag
+
+        pttMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            guard let self = self else { return }
+            // Disambiguate left vs right modifier (they share the same flag).
+            guard Int(event.keyCode) == targetKeyCode else { return }
+            let isPressed = event.modifierFlags
+                .intersection(.deviceIndependentFlagsMask)
+                .contains(targetFlag)
+            if isPressed && !self.pttIsHeld {
+                self.pttIsHeld = true
+                self.pttOnPress?()
+            } else if !isPressed && self.pttIsHeld {
+                self.pttIsHeld = false
+                self.pttOnRelease?()
+            }
+        }
+        logToFile("PTT registered: \(pttKey.displayName) (keyCode \(targetKeyCode))")
+    }
+
+    /// Re-register PTT with the current pttKey. Call after the user changes the picker.
+    func reregisterPTT() {
+        guard let onPress = pttOnPress, let onRelease = pttOnRelease else {
+            logToFile("PTT reregister skipped: no callbacks set")
+            return
+        }
+        registerPTT(onPress: onPress, onRelease: onRelease)
+    }
+
+    /// Update the PTT key and re-register the monitor.
+    func updatePTTKey(_ newKey: PTTKey) {
+        pttKey = newKey
+        reregisterPTT()
+        logToFile("PTT key updated to: \(newKey.displayName)")
+    }
+
+    func unregisterPTT() {
+        if let m = pttMonitor {
+            NSEvent.removeMonitor(m)
+            pttMonitor = nil
+        }
+        pttIsHeld = false
     }
 
     // MARK: - Key Name Lookup

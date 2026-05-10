@@ -107,6 +107,10 @@ final class AppState {
 
     // Scratch-that tracking (non-persisted, per session)
     var recentOutputLengths: [Int] = []
+
+    // Push-to-talk state (non-persisted, per recording session)
+    private var pttHeldStart: Date?
+    private var pttCancelOnNextStop = false
     var sessionTotalChars: Int = 0
 
     // Settings (persisted via UserDefaults)
@@ -511,6 +515,39 @@ final class AppState {
                 }
             }
 
+            // Push-to-talk hotkey (modifier-only, hold-to-record). Coexists with Cmd+D toggle.
+            hotkeyService?.registerPTT(
+                onPress: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        guard let self = self else { return }
+                        // If Cmd+D toggle is already recording, ignore PTT press.
+                        guard !self.isRecording else {
+                            logToFile("PTT press ignored: Cmd+D recording active")
+                            return
+                        }
+                        self.pttHeldStart = Date()
+                        self.startRecording()
+                    }
+                },
+                onRelease: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        guard let self = self else { return }
+                        // Only act on release if we're actually PTT-recording.
+                        guard self.isRecording, let start = self.pttHeldStart else { return }
+                        let heldFor = Date().timeIntervalSince(start)
+                        self.pttHeldStart = nil
+                        if heldFor < 0.2 {
+                            // Accidental tap — discard buffer, no transcribe.
+                            self.pttCancelOnNextStop = true
+                            logToFile("PTT cancelled: held \(String(format: "%.0f", heldFor * 1000))ms < 200ms")
+                        } else {
+                            logToFile("PTT released after \(String(format: "%.0f", heldFor * 1000))ms — transcribing")
+                        }
+                        self.stopRecording()
+                    }
+                }
+            )
+
             if !AXIsProcessTrusted() {
                 logToFile("Accessibility not granted — prompting user")
                 AutoTypeService.promptAccessibilityOnce()
@@ -742,7 +779,16 @@ final class AppState {
         liveTranscriptionService?.disconnect()
         liveTranscriptionService = nil
 
-        if let remaining = audioService?.stopRecording() {
+        let remaining = audioService?.stopRecording()
+
+        // PTT cancel guard — short-tap PTT press discards the buffer instead of transcribing.
+        if pttCancelOnNextStop {
+            pttCancelOnNextStop = false
+            logToFile("PTT cancel — discarding \(remaining?.count ?? 0) samples")
+            return
+        }
+
+        if let remaining = remaining {
             // Only process remaining chunk for local mode (no live service)
             if !useCloudTranscription || (geminiApiKey.isEmpty && openRouterApiKey.isEmpty) {
                 Task {
