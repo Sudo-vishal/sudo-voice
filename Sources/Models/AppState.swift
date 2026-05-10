@@ -183,6 +183,17 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "soundEnabled") }
     }
 
+    /// Push-to-talk modifier key. Setter updates the persisted UserDefaults
+    /// AND re-registers the global flagsChanged monitor on HotkeyService.
+    /// Default = .leftOption (Dhruv reserves Right Option for Wispr Flow).
+    var pttKey: PTTKey {
+        get { hotkeyService?.pttKey ?? PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "leftOption") ?? .leftOption }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "pttKey")
+            hotkeyService?.updatePTTKey(newValue)
+        }
+    }
+
     // MARK: - LLM Provider Settings
 
     var selectedLLMProvider: LLMProvider {

@@ -130,6 +130,36 @@ private struct GeneralTab: View {
                     Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
                 }
 
+                GroupBox("Push-to-Talk") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Picker("Hold to record:", selection: $state.pttKey) {
+                            ForEach(PTTKey.allCases) { key in
+                                Text(key.displayName).tag(key)
+                            }
+                        }
+                        .pickerStyle(.menu)
+
+                        Text("Hold the selected key to record. Release to transcribe and paste. Cmd+D toggle also keeps working.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("Tip: short taps under 200ms are ignored as accidental.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                GroupBox("Sound") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Play sound on recording start/stop", isOn: $state.soundEnabled)
+                        Text("Quiet system click on start, soft thud on stop.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 GroupBox("Brand") {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
