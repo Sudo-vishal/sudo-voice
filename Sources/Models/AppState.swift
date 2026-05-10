@@ -860,14 +860,31 @@ final class AppState {
             finalText = smartPunctuationEnabled ? SmartPunctuationService.apply(trimmed) : trimmed
         }
 
+        // Standalone "summarize this" — trigger phrase IS the chunk (no preceding content).
+        // Operate on the previously-typed transcript: replace it with a summary.
+        let isStandaloneSummarize = summarizeTriggerDetected
+            && summarizeRawInput.isEmpty
+            && !lastTranscription.isEmpty
+
         // Route output: .raw uses trimmed, .clean uses finalText, .summary needs an async LLM call
-        let summarizeInput: String = summarizeTriggerDetected ? summarizeRawInput : finalText
+        let summarizeInput: String = {
+            if isStandaloneSummarize { return lastTranscription }
+            return summarizeTriggerDetected ? summarizeRawInput : finalText
+        }()
         let needsSummary = (effectiveMode == .summary)
             && hasAnyLLMKey
             && summarizeInput.split(separator: " ").count >= 3
 
+        // Standalone trigger but can't summarize (no LLM key OR lastTranscription too short)
+        // → silent no-op. Don't echo "summarize this" back. Don't delete. Don't cloud-save.
+        if isStandaloneSummarize && !needsSummary {
+            logToFile("Standalone summarize ignored (live): no LLM key or lastTranscription too short")
+            return
+        }
+
         if needsSummary {
             // Async path — summarize first, then emit. User sees a slight delay then the summary appears.
+            let captureIsStandalone = isStandaloneSummarize
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 let summary = await self.llmCleanupService?.summarizeWithProvider(
@@ -881,7 +898,8 @@ final class AppState {
                     rawText: trimmed,
                     outputText: summary,
                     cloudCleaned: summary,
-                    llmCleanupModel: self.selectedLLMProvider.modelName
+                    llmCleanupModel: self.selectedLLMProvider.modelName,
+                    isStandaloneSummarize: captureIsStandalone
                 )
             }
         } else {
@@ -895,7 +913,8 @@ final class AppState {
                 rawText: trimmed,
                 outputText: outputText,
                 cloudCleaned: cloudCleaned,
-                llmCleanupModel: nil
+                llmCleanupModel: nil,
+                isStandaloneSummarize: false
             )
         }
     }
@@ -903,11 +922,15 @@ final class AppState {
     /// Shared post-transcription emit for live mode: history + cloud save + auto-type.
     /// IW-007 cloud save fires regardless of output mode; only what's typed and the
     /// cleanedText/llmCleanupModel fields differ per mode.
+    /// `isStandaloneSummarize` (default false): when true, deletes the previously-typed
+    /// transcript via recentOutputLengths.popLast() before typing the summary, so
+    /// "summarize this" alone replaces the prior dictation in place.
     private func applyLiveOutput(
         rawText: String,
         outputText: String,
         cloudCleaned: String?,
-        llmCleanupModel: String?
+        llmCleanupModel: String?,
+        isStandaloneSummarize: Bool = false
     ) {
         lastTranscription = outputText
 
@@ -940,6 +963,14 @@ final class AppState {
                 )
             }
             _ = user
+        }
+
+        // Standalone summarize: delete the previously-typed transcript so the summary
+        // replaces it in place (rather than appending after).
+        if isStandaloneSummarize, let lastLength = recentOutputLengths.popLast() {
+            autoTypeService?.deleteCharacters(lastLength)
+            sessionTotalChars -= lastLength
+            logToFile("Standalone summarize: deleted prior \(lastLength) chars before summary")
         }
 
         // Auto-type
@@ -1139,6 +1170,12 @@ final class AppState {
             let (summarizeTriggerDetected, summarizeRawInput) = detectSummarizeTrigger(rawText)
             let effectiveMode: OutputMode = summarizeTriggerDetected ? .summary : outputMode
 
+            // Standalone "summarize this" — trigger phrase IS the chunk (no preceding content).
+            // Operate on the previously-typed transcript: replace it with a summary.
+            let isStandaloneSummarize = summarizeTriggerDetected
+                && summarizeRawInput.isEmpty
+                && !lastTranscription.isEmpty
+
             // LLM cleanup — skipped for .raw mode (user wants no editing); also skipped on cloud path
             let llmOutput: String
             var llmCleanupRanThisChunk = false
@@ -1194,9 +1231,19 @@ final class AppState {
                 cloudCleaned = (finalText != rawText) ? finalText : nil
                 cloudLLMCleanupModel = llmCleanupRanThisChunk ? selectedLLMProvider.modelName : nil
             case .summary:
-                let summarizeInput = summarizeTriggerDetected ? summarizeRawInput : finalText
+                let summarizeInput: String = {
+                    if isStandaloneSummarize { return lastTranscription }
+                    return summarizeTriggerDetected ? summarizeRawInput : finalText
+                }()
                 let words = summarizeInput.split(separator: " ").count
                 if !hasAnyLLMKey || words < 3 {
+                    if isStandaloneSummarize {
+                        // Bug fix: standalone trigger with no LLM/short prior → silent no-op.
+                        // Don't echo "summarize this" back, don't delete, don't cloud-save.
+                        logToFile("Standalone summarize ignored (batch): no LLM key or lastTranscription too short")
+                        await MainActor.run { isProcessing = false }
+                        return
+                    }
                     logToFile("Summary fallback (batch): no LLM key or text too short — using clean output")
                     outputText = finalText
                     cloudCleaned = (finalText != rawText) ? finalText : nil
@@ -1250,6 +1297,14 @@ final class AppState {
                         )
                     }
                     _ = user
+                }
+
+                // Standalone summarize: delete the previously-typed transcript so the
+                // summary replaces it in place (rather than appending after).
+                if isStandaloneSummarize, let lastLength = recentOutputLengths.popLast() {
+                    autoTypeService?.deleteCharacters(lastLength)
+                    sessionTotalChars -= lastLength
+                    logToFile("Standalone summarize: deleted prior \(lastLength) chars before summary")
                 }
 
                 // Auto-type + FEATURE 5: track char count
