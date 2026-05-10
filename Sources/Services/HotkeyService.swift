@@ -17,8 +17,8 @@ enum PTTKey: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .disabled:    return "Off"
-        case .rightOption: return "Right Option (default)"
-        case .leftOption:  return "Left Option"
+        case .rightOption: return "Right Option"
+        case .leftOption:  return "Left Option (default)"
         case .fn:          return "Fn"
         case .rightCmd:    return "Right Command"
         case .rightShift:  return "Right Shift"
@@ -66,8 +66,9 @@ final class HotkeyService {
     private var pttOnRelease: (() -> Void)?
 
     /// Currently configured PTT key. Persisted in UserDefaults.
+    /// Default: Left Option (Right Option is reserved for Wispr Flow on Dhruv's setup).
     var pttKey: PTTKey {
-        get { PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "rightOption") ?? .rightOption }
+        get { PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "leftOption") ?? .leftOption }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "pttKey") }
     }
 
