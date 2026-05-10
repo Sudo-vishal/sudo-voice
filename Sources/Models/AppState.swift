@@ -696,6 +696,7 @@ final class AppState {
         guard soundEnabled, let sound = NSSound(named: name) else { return }
         sound.volume = 0.3
         sound.play()
+        logToFile("Sound played: \(name) (vol 0.3)")
     }
 
     @MainActor

@@ -65,6 +65,13 @@ final class HotkeyService {
     private var pttOnPress: (() -> Void)?
     private var pttOnRelease: (() -> Void)?
 
+    // 100ms event-level debounce — defends against duplicate flagsChanged events
+    // from any source (hardware bounce, multiple monitor instances, OS event
+    // flicker). Static so it dedupes across instances if HotkeyService is ever
+    // accidentally created twice.
+    private static var lastPTTEventTime: Date = .distantPast
+    private static let pttDebounceSec: TimeInterval = 0.1
+
     /// Currently configured PTT key. Persisted in UserDefaults.
     /// Default: Left Option (Right Option is reserved for Wispr Flow on Dhruv's setup).
     var pttKey: PTTKey {
@@ -201,6 +208,18 @@ final class HotkeyService {
             guard let self = self else { return }
             // Disambiguate left vs right modifier (they share the same flag).
             guard Int(event.keyCode) == targetKeyCode else { return }
+
+            // 100ms debounce — drops duplicate flagsChanged events that fire from
+            // hardware bounce, OS event flicker, or unintended monitor duplication.
+            // Real human press/release pairs are far apart (>200ms minimum after
+            // the cancel guard), so this can't lose a legitimate event.
+            let now = Date()
+            guard now.timeIntervalSince(HotkeyService.lastPTTEventTime) > HotkeyService.pttDebounceSec else {
+                logToFile("PTT debounced: duplicate flagsChanged within \(Int(HotkeyService.pttDebounceSec * 1000))ms")
+                return
+            }
+            HotkeyService.lastPTTEventTime = now
+
             let isPressed = event.modifierFlags
                 .intersection(.deviceIndependentFlagsMask)
                 .contains(targetFlag)
