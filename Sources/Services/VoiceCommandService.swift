@@ -5,6 +5,9 @@ enum VoiceCommand {
     case scratchThat    // delete last chunk
     case deleteWord     // delete last word
     case clearAll       // delete everything typed this session
+    case copy           // copy lastTranscription to NSPasteboard
+    case paste          // send Cmd+V to active app
+    case cut            // copy lastTranscription + delete it from active app
     case none           // not a command, continue normal processing
 }
 
@@ -30,6 +33,20 @@ final class VoiceCommandService {
         "start over", "erase all",
     ]
 
+    private static let copyPhrases: Set<String> = [
+        "copy", "copy that", "copy this", "copy it", "copy all",
+        "copied", "copied that", "copies that",
+    ]
+
+    private static let pastePhrases: Set<String> = [
+        "paste", "paste here", "paste it", "paste this",
+        "pasted", "pasted here",
+    ]
+
+    private static let cutPhrases: Set<String> = [
+        "cut", "cut that", "cut this", "cut it",
+    ]
+
     /// Detect if raw Whisper output is a voice command.
     static func detect(_ rawText: String) -> VoiceCommand {
         let normalized = rawText
@@ -45,6 +62,9 @@ final class VoiceCommandService {
         if scratchPhrases.contains(normalized) { return .scratchThat }
         if deleteWordPhrases.contains(normalized) { return .deleteWord }
         if clearAllPhrases.contains(normalized) { return .clearAll }
+        if copyPhrases.contains(normalized) { return .copy }
+        if pastePhrases.contains(normalized) { return .paste }
+        if cutPhrases.contains(normalized) { return .cut }
 
         // Prefix match (Whisper might add extra words after)
         for phrase in scratchPhrases {
@@ -55,6 +75,21 @@ final class VoiceCommandService {
         for phrase in clearAllPhrases {
             if normalized.hasPrefix(phrase) && normalized.count < phrase.count + 10 {
                 return .clearAll
+            }
+        }
+        for phrase in copyPhrases {
+            if normalized.hasPrefix(phrase) && normalized.count < phrase.count + 10 {
+                return .copy
+            }
+        }
+        for phrase in pastePhrases {
+            if normalized.hasPrefix(phrase) && normalized.count < phrase.count + 10 {
+                return .paste
+            }
+        }
+        for phrase in cutPhrases {
+            if normalized.hasPrefix(phrase) && normalized.count < phrase.count + 10 {
+                return .cut
             }
         }
 
@@ -74,6 +109,21 @@ final class VoiceCommandService {
             for phrase in clearAllPhrases {
                 if normalized.hasSuffix(phrase) || normalized.contains(phrase) {
                     return .clearAll
+                }
+            }
+            for phrase in copyPhrases {
+                if normalized.hasSuffix(phrase) || normalized.contains(phrase) {
+                    return .copy
+                }
+            }
+            for phrase in pastePhrases {
+                if normalized.hasSuffix(phrase) || normalized.contains(phrase) {
+                    return .paste
+                }
+            }
+            for phrase in cutPhrases {
+                if normalized.hasSuffix(phrase) || normalized.contains(phrase) {
+                    return .cut
                 }
             }
         }

@@ -749,6 +749,35 @@ final class AppState {
                     recentOutputLengths.removeAll()
                 }
                 return
+            case .copy:
+                if !lastTranscription.isEmpty {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(lastTranscription, forType: .string)
+                    logToFile("COPY: \(lastTranscription.count) chars to clipboard")
+                }
+                return
+            case .paste:
+                let source = CGEventSource(stateID: .hidSystemState)
+                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
+                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
+                    keyDown.flags = .maskCommand
+                    keyUp.flags = .maskCommand
+                    keyDown.post(tap: .cgSessionEventTap)
+                    keyUp.post(tap: .cgSessionEventTap)
+                    logToFile("PASTE: Cmd+V sent")
+                }
+                return
+            case .cut:
+                if !lastTranscription.isEmpty {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(lastTranscription, forType: .string)
+                    if let lastLength = recentOutputLengths.popLast() {
+                        autoTypeService?.deleteCharacters(lastLength)
+                        sessionTotalChars -= lastLength
+                    }
+                    logToFile("CUT: copied \(lastTranscription.count) chars + deleted from app")
+                }
+                return
             case .none:
                 break
             }
@@ -930,6 +959,47 @@ final class AppState {
                             logToFile("CLEAR ALL: deleted \(sessionTotalChars) chars")
                             sessionTotalChars = 0
                             recentOutputLengths.removeAll()
+                        }
+                        isProcessing = false
+                    }
+                    return
+
+                case .copy:
+                    await MainActor.run {
+                        if !lastTranscription.isEmpty {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(lastTranscription, forType: .string)
+                            logToFile("COPY: \(lastTranscription.count) chars to clipboard")
+                        }
+                        isProcessing = false
+                    }
+                    return
+
+                case .paste:
+                    await MainActor.run {
+                        let source = CGEventSource(stateID: .hidSystemState)
+                        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
+                           let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
+                            keyDown.flags = .maskCommand
+                            keyUp.flags = .maskCommand
+                            keyDown.post(tap: .cgSessionEventTap)
+                            keyUp.post(tap: .cgSessionEventTap)
+                            logToFile("PASTE: Cmd+V sent")
+                        }
+                        isProcessing = false
+                    }
+                    return
+
+                case .cut:
+                    await MainActor.run {
+                        if !lastTranscription.isEmpty {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(lastTranscription, forType: .string)
+                            if let lastLength = recentOutputLengths.popLast() {
+                                autoTypeService?.deleteCharacters(lastLength)
+                                sessionTotalChars -= lastLength
+                            }
+                            logToFile("CUT: copied \(lastTranscription.count) chars + deleted from app")
                         }
                         isProcessing = false
                     }
