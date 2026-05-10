@@ -218,6 +218,27 @@ private struct LLMTab: View {
                     .padding(.vertical, 4)
                 }
 
+                GroupBox("Output Mode") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Picker("Output", selection: $state.outputMode) {
+                            ForEach(OutputMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text(state.outputMode.blurb)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("Say \"summarize this\" at the end of any recording to get an ad-hoc summary, regardless of this setting.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 2)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 GroupBox("API Keys") {
                     VStack(spacing: 6) {
                         SecureAPIKeyField(label: "Groq", key: $state.groqApiKey)

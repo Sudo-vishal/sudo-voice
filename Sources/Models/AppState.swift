@@ -33,6 +33,34 @@ enum WhisperModelSize: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Output Mode
+
+/// Controls what gets pasted to the active app after transcription.
+/// Cloud save (IW-007) fires in all modes — only the typed/pasted output differs.
+enum OutputMode: String, CaseIterable, Identifiable {
+    case raw = "raw"          // paste exactly as transcribed (skip LLM cleanup + smart punct)
+    case clean = "clean"      // LLM-polish punctuation + grammar (current default)
+    case summary = "summary"  // LLM-compress to 30-50% length
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .raw: return "Raw"
+        case .clean: return "Clean (default)"
+        case .summary: return "Summary"
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .raw: return "Paste exactly as transcribed."
+        case .clean: return "LLM polishes punctuation + grammar."
+        case .summary: return "LLM compresses to 30-50% length."
+        }
+    }
+}
+
 // MARK: - Free Tier Limits
 
 enum FreeTierLimits {
@@ -137,6 +165,12 @@ final class AppState {
     var llmCleanupEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "llmCleanupEnabled") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "llmCleanupEnabled") }
+    }
+
+    /// What gets pasted: raw / clean / summary. Default = .clean (no migration friction).
+    var outputMode: OutputMode {
+        get { OutputMode(rawValue: UserDefaults.standard.string(forKey: "outputMode") ?? "clean") ?? .clean }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "outputMode") }
     }
 
     // MARK: - LLM Provider Settings
@@ -701,6 +735,37 @@ final class AppState {
         }
     }
 
+    // MARK: - Output Mode Helpers
+
+    /// Detects "summarize this/that/the text/it" at the END of a transcript chunk.
+    /// Returns (matched, prefix) where prefix is the chunk with the trigger phrase
+    /// stripped (and trailing punctuation/whitespace trimmed). On no-match, returns
+    /// (false, originalText). Case-insensitive; tolerant of "summarise" UK spelling.
+    private func detectSummarizeTrigger(_ text: String) -> (matched: Bool, stripped: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        // Sorted longest-first so we strip the longest match (avoids partial matches).
+        let triggers = [
+            "summarize the text", "summarise the text",
+            "summarize this", "summarise this",
+            "summarize that", "summarise that",
+            "summarize it", "summarise it",
+            "summarize", "summarise",
+        ]
+        // Strip optional trailing period for matching
+        let candidate = lower.hasSuffix(".") ? String(lower.dropLast()) : lower
+        for trigger in triggers {
+            if candidate.hasSuffix(trigger) {
+                let endIdx = trimmed.index(trimmed.endIndex, offsetBy: -trigger.count - (lower.hasSuffix(".") ? 1 : 0))
+                let prefix = String(trimmed[..<endIdx])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: ",;:.- "))
+                return (true, prefix)
+            }
+        }
+        return (false, text)
+    }
+
     // MARK: - Live Streaming Pipeline
 
     /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
@@ -783,15 +848,71 @@ final class AppState {
             }
         }
 
-        // Smart punctuation
-        let finalText = smartPunctuationEnabled ? SmartPunctuationService.apply(trimmed) : trimmed
+        // Detect summarize trigger + compute effective output mode (D-IW-MAC-VOICE-CMD-001)
+        let (summarizeTriggerDetected, summarizeRawInput) = detectSummarizeTrigger(trimmed)
+        let effectiveMode: OutputMode = summarizeTriggerDetected ? .summary : outputMode
 
-        // Update state
-        lastTranscription = finalText
+        // Smart punctuation (skipped for .raw mode — user explicitly wants no editing)
+        let finalText: String
+        if effectiveMode == .raw {
+            finalText = trimmed
+        } else {
+            finalText = smartPunctuationEnabled ? SmartPunctuationService.apply(trimmed) : trimmed
+        }
 
-        // History
+        // Route output: .raw uses trimmed, .clean uses finalText, .summary needs an async LLM call
+        let summarizeInput: String = summarizeTriggerDetected ? summarizeRawInput : finalText
+        let needsSummary = (effectiveMode == .summary)
+            && hasAnyLLMKey
+            && summarizeInput.split(separator: " ").count >= 3
+
+        if needsSummary {
+            // Async path — summarize first, then emit. User sees a slight delay then the summary appears.
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                let summary = await self.llmCleanupService?.summarizeWithProvider(
+                    summarizeInput,
+                    provider: self.selectedLLMProvider,
+                    apiKeys: self.allAPIKeys(),
+                    language: self.hindiMode ? "hi-IN" : "en-IN",
+                    customInstructions: self.customStyleInstructions
+                ) ?? summarizeInput
+                self.applyLiveOutput(
+                    rawText: trimmed,
+                    outputText: summary,
+                    cloudCleaned: summary,
+                    llmCleanupModel: self.selectedLLMProvider.modelName
+                )
+            }
+        } else {
+            // Sync path — .raw / .clean / .summary-with-fallback (no key or text too short)
+            let outputText: String = (effectiveMode == .raw) ? trimmed : finalText
+            let cloudCleaned: String? = (effectiveMode == .raw) ? nil : ((finalText != trimmed) ? finalText : nil)
+            if effectiveMode == .summary && !needsSummary {
+                logToFile("Summary fallback (live): no LLM key or text too short — using \(finalText == trimmed ? "raw" : "clean")")
+            }
+            applyLiveOutput(
+                rawText: trimmed,
+                outputText: outputText,
+                cloudCleaned: cloudCleaned,
+                llmCleanupModel: nil
+            )
+        }
+    }
+
+    /// Shared post-transcription emit for live mode: history + cloud save + auto-type.
+    /// IW-007 cloud save fires regardless of output mode; only what's typed and the
+    /// cleanedText/llmCleanupModel fields differ per mode.
+    private func applyLiveOutput(
+        rawText: String,
+        outputText: String,
+        cloudCleaned: String?,
+        llmCleanupModel: String?
+    ) {
+        lastTranscription = outputText
+
         transcriptionHistory.insert(
-            TranscriptionEntry(originalText: trimmed, cleanedText: finalText),
+            TranscriptionEntry(originalText: rawText, cleanedText: outputText),
             at: 0
         )
         if transcriptionHistory.count > 100 {
@@ -801,17 +922,18 @@ final class AppState {
 
         // Cloud save (signed-in users only) — fire-and-forget, never block on network
         if let user = currentUser {
-            let charCount = finalText.count
-            let wordCount = finalText.split(separator: " ").count
+            let charCount = outputText.count
+            let wordCount = outputText.split(separator: " ").count
             let language: String = hindiMode ? "hi-IN" : "en-IN"
+            let captureLLMCleanupModel = llmCleanupModel
 
             Task.detached {
                 _ = await SupabaseService.shared.saveTranscript(
-                    rawText: trimmed,
-                    cleanedText: (finalText != trimmed) ? finalText : nil,
+                    rawText: rawText,
+                    cleanedText: cloudCleaned,
                     language: language,
                     modelUsed: "gemini-live",
-                    llmCleanupModel: nil,
+                    llmCleanupModel: captureLLMCleanupModel,
                     durationSeconds: nil,
                     wordCount: wordCount,
                     charCount: charCount
@@ -822,7 +944,7 @@ final class AppState {
 
         // Auto-type
         if autoTypeEnabled {
-            let textToType = finalText + " "
+            let textToType = outputText + " "
             autoTypeService?.typeText(textToType)
             recentOutputLengths.append(textToType.count)
             sessionTotalChars += textToType.count
@@ -1013,9 +1135,16 @@ final class AppState {
             // Save raw text for history
             let rawText = trimmed
 
-            // LLM cleanup — only for LOCAL path (cloud already does cleanup)
+            // Detect summarize trigger + compute effective output mode (D-IW-MAC-VOICE-CMD-001)
+            let (summarizeTriggerDetected, summarizeRawInput) = detectSummarizeTrigger(rawText)
+            let effectiveMode: OutputMode = summarizeTriggerDetected ? .summary : outputMode
+
+            // LLM cleanup — skipped for .raw mode (user wants no editing); also skipped on cloud path
             let llmOutput: String
-            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
+            var llmCleanupRanThisChunk = false
+            if effectiveMode == .raw {
+                llmOutput = trimmed
+            } else if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
                 // Cloud path: already cleaned the text
                 llmOutput = trimmed
             } else {
@@ -1024,6 +1153,7 @@ final class AppState {
                 logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
                 if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
                     llmCleanupsToday += 1
+                    llmCleanupRanThisChunk = true
                     let cleaned = await llmCleanupService?.cleanWithProvider(
                         trimmed,
                         provider: selectedLLMProvider,
@@ -1040,20 +1170,57 @@ final class AppState {
                 }
             }
 
-            // FEATURE 4: Smart punctuation (AFTER cleanup)
+            // Smart punctuation — skipped for .raw mode
             let finalText: String
-            if smartPunctuationEnabled {
+            if effectiveMode == .raw {
+                finalText = llmOutput
+            } else if smartPunctuationEnabled {
                 finalText = SmartPunctuationService.apply(llmOutput)
             } else {
                 finalText = llmOutput
             }
 
-            await MainActor.run {
-                lastTranscription = finalText
+            // Output routing — what gets typed + cloud-saved per effective mode
+            let outputText: String
+            let cloudCleaned: String?
+            let cloudLLMCleanupModel: String?
+            switch effectiveMode {
+            case .raw:
+                outputText = rawText
+                cloudCleaned = nil
+                cloudLLMCleanupModel = nil
+            case .clean:
+                outputText = finalText
+                cloudCleaned = (finalText != rawText) ? finalText : nil
+                cloudLLMCleanupModel = llmCleanupRanThisChunk ? selectedLLMProvider.modelName : nil
+            case .summary:
+                let summarizeInput = summarizeTriggerDetected ? summarizeRawInput : finalText
+                let words = summarizeInput.split(separator: " ").count
+                if !hasAnyLLMKey || words < 3 {
+                    logToFile("Summary fallback (batch): no LLM key or text too short — using clean output")
+                    outputText = finalText
+                    cloudCleaned = (finalText != rawText) ? finalText : nil
+                    cloudLLMCleanupModel = llmCleanupRanThisChunk ? selectedLLMProvider.modelName : nil
+                } else {
+                    let summary = await llmCleanupService?.summarizeWithProvider(
+                        summarizeInput,
+                        provider: selectedLLMProvider,
+                        apiKeys: allAPIKeys(),
+                        language: hindiMode ? "hi-IN" : "en-IN",
+                        customInstructions: customStyleInstructions
+                    ) ?? summarizeInput
+                    outputText = summary
+                    cloudCleaned = summary
+                    cloudLLMCleanupModel = selectedLLMProvider.modelName
+                }
+            }
 
-                // FEATURE 3: History with original + cleaned text
+            await MainActor.run {
+                lastTranscription = outputText
+
+                // History with original + (cleaned/summary) text
                 transcriptionHistory.insert(
-                    TranscriptionEntry(originalText: rawText, cleanedText: finalText),
+                    TranscriptionEntry(originalText: rawText, cleanedText: outputText),
                     at: 0
                 )
                 if transcriptionHistory.count > 100 {
@@ -1061,22 +1228,22 @@ final class AppState {
                 }
                 saveHistory()
 
-                // Cloud save (signed-in users only) — fire-and-forget, never block on network
+                // Cloud save (signed-in users only) — fire-and-forget, never block on network.
+                // Fires in ALL output modes; only cleanedText / llmCleanupModel differ.
                 if let user = currentUser {
-                    let charCount = finalText.count
-                    let wordCount = finalText.split(separator: " ").count
+                    let charCount = outputText.count
+                    let wordCount = outputText.split(separator: " ").count
                     let language: String = hindiMode ? "hi-IN" : "en-IN"
                     let modelUsed: String = useCloudTranscription ? "gemini-cloud" : "whisper-\(selectedModel.rawValue)"
-                    let llmCleanup: String? = (llmCleanupEnabled && hasAnyLLMKey && wordCount >= 3) ? selectedLLMProvider.modelName : nil
                     let durationInt: Int? = chunkSeconds > 0 ? Int(chunkSeconds) : nil
 
                     Task.detached {
                         _ = await SupabaseService.shared.saveTranscript(
                             rawText: rawText,
-                            cleanedText: (finalText != rawText) ? finalText : nil,
+                            cleanedText: cloudCleaned,
                             language: language,
                             modelUsed: modelUsed,
-                            llmCleanupModel: llmCleanup,
+                            llmCleanupModel: cloudLLMCleanupModel,
                             durationSeconds: durationInt,
                             wordCount: wordCount,
                             charCount: charCount
@@ -1087,7 +1254,7 @@ final class AppState {
 
                 // Auto-type + FEATURE 5: track char count
                 if autoTypeEnabled {
-                    let textToType = finalText + " "
+                    let textToType = outputText + " "
                     autoTypeService?.typeText(textToType)
                     recentOutputLengths.append(textToType.count)
                     sessionTotalChars += textToType.count
