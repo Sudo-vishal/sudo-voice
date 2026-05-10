@@ -173,6 +173,12 @@ final class AppState {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "outputMode") }
     }
 
+    /// Play a quiet sound on recording start/stop. Default ON.
+    var soundEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "soundEnabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "soundEnabled") }
+    }
+
     // MARK: - LLM Provider Settings
 
     var selectedLLMProvider: LLMProvider {
@@ -635,6 +641,15 @@ final class AppState {
         }
     }
 
+    /// Play a built-in macOS system sound at quiet volume.
+    /// Used as audio cue for recording start/stop.
+    /// Volume 0.3 = barely audible, just enough to confirm action.
+    private func playRecordingSound(_ name: String) {
+        guard soundEnabled, let sound = NSSound(named: name) else { return }
+        sound.volume = 0.3
+        sound.play()
+    }
+
     @MainActor
     func startRecording() {
         // Cloud mode doesn't need local model
@@ -642,6 +657,7 @@ final class AppState {
         guard isModelLoaded || (useCloudTranscription && hasCloudKey) else { return }
 
         isRecording = true
+        playRecordingSound("Tink")  // sharp click cue on start
         if useCloudTranscription && hasCloudKey {
             isModelLoaded = true  // ensure UI shows ready
         }
@@ -718,6 +734,7 @@ final class AppState {
     @MainActor
     func stopRecording() {
         isRecording = false
+        playRecordingSound("Pop")  // soft thud cue on stop
         floatingIndicator?.hide()
 
         // Disconnect Gemini Live streaming
