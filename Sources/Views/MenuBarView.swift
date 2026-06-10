@@ -72,6 +72,34 @@ struct MenuBarView: View {
         // Status
         Text(appState.statusText)
 
+        // ===== Permission & health warnings (top — most common silent failures) =====
+        if appState.autoTypeEnabled && !AutoTypeService.isAccessibilityGranted() {
+            Text("⚠️ Auto-type is OFF — macOS revoked Accessibility")
+            Button("Fix Now — Open Accessibility Settings") {
+                AutoTypeService.promptAccessibilityOnce()
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Divider()
+        }
+
+        if appState.micPermissionLost {
+            Button("⚠️ Grant Microphone Access — Open Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Divider()
+        }
+
+        if appState.modelLoadFailed && !appState.useCloudTranscription {
+            Button("⟳ Retry Model Download") {
+                Task { await appState.loadModel() }
+            }
+            Divider()
+        }
+
         if !appState.lastTranscription.isEmpty {
             Text(appState.lastTranscription)
                 .lineLimit(3)
@@ -165,12 +193,6 @@ struct MenuBarView: View {
             }
 
             Divider()
-        }
-
-        if !AutoTypeService.isAccessibilityGranted() {
-            Button("Grant Accessibility") {
-                AutoTypeService.promptAccessibilityOnce()
-            }
         }
 
         if UpdateService.shared.updateAvailable {

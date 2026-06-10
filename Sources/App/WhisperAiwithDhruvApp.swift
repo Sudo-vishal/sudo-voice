@@ -1,15 +1,24 @@
 import SwiftUI
 import AppKit
 
+/// Persistent log location — ~/Library/Logs/IndianWhisper/debug.log
+/// (was /tmp, which macOS wipes on restart — support debugging kept losing history)
+let logFilePath: String = {
+    let fm = FileManager.default
+    let dir = fm.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Logs/IndianWhisper", isDirectory: true)
+    try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir.appendingPathComponent("debug.log").path
+}()
+
 func logToFile(_ msg: String) {
     let line = "[\(Date())] \(msg)\n"
-    let path = "/tmp/whisper_debug.log"
-    if let handle = FileHandle(forWritingAtPath: path) {
+    if let handle = FileHandle(forWritingAtPath: logFilePath) {
         handle.seekToEndOfFile()
         handle.write(line.data(using: .utf8)!)
         handle.closeFile()
     } else {
-        FileManager.default.createFile(atPath: path, contents: line.data(using: .utf8))
+        FileManager.default.createFile(atPath: logFilePath, contents: line.data(using: .utf8))
     }
 }
 

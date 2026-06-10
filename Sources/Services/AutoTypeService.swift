@@ -41,39 +41,16 @@ final class AutoTypeService {
                 usleep(8_000)
             }
         } else {
-            logToFile("No accessibility — pasting via clipboard: \"\(text)\"")
-            // Save current clipboard, set our text, paste, then restore
+            // No Accessibility → CGEvent key posting is ALSO blocked by macOS,
+            // so the old "auto Cmd+V" attempt could never fire — and the 400ms
+            // clipboard restore then wiped the very text we copied. Net result:
+            // user saw nothing typed AND lost the transcription. Now: leave the
+            // text on the clipboard so a manual Cmd+V always works; AppState
+            // shows a status warning pointing to the Accessibility fix.
+            logToFile("No accessibility — text left on clipboard for manual Cmd+V: \"\(text)\"")
             let pasteboard = NSPasteboard.general
-            let savedItems = pasteboard.pasteboardItems?.compactMap { item -> (NSPasteboard.PasteboardType, Data)? in
-                guard let type = item.types.first, let data = item.data(forType: type) else { return nil }
-                return (type, data)
-            }
-
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
-
-            // Delay 250ms so the user's previous app regains focus before we paste
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                let source = CGEventSource(stateID: .hidSystemState)
-                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
-                    keyDown.flags = .maskCommand
-                    keyUp.flags = .maskCommand
-                    keyDown.post(tap: .cgSessionEventTap)
-                    keyUp.post(tap: .cgSessionEventTap)
-                    logToFile("Cmd+V paste sent (session tap)")
-                }
-
-                // Restore previous clipboard 400ms after paste
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    if let saved = savedItems, !saved.isEmpty {
-                        pasteboard.clearContents()
-                        for (type, data) in saved {
-                            pasteboard.setData(data, forType: type)
-                        }
-                    }
-                }
-            }
         }
     }
 

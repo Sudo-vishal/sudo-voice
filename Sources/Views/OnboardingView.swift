@@ -140,11 +140,15 @@ private struct AccessibilityStep: View {
             Spacer()
 
             HStack {
-                Button("Skip") { onNext() }
+                // Explicit trade-off label — a bare "Skip" hid the consequence and
+                // users then reported auto-type as "broken"
+                Button("Use Clipboard Instead") { onNext() }
                     .buttonStyle(.bordered)
+                    .help("Without Accessibility, transcribed text is copied to your clipboard — paste it with Cmd+V")
                 Spacer()
                 Button("Next") { onNext() }
                     .buttonStyle(.borderedProminent)
+                    .disabled(!granted)
             }
         }
         .padding(.bottom, 16)

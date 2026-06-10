@@ -100,6 +100,11 @@ final class AppState {
     var isModelLoaded = false
     var isModelDownloading = false
     var modelDownloadProgress: Double = 0.0
+    var modelLoadFailed = false
+
+    // Permission health (client-ready pass) — drives visible warnings instead of silent failures
+    var micPermissionLost = false
+    var accessibilityFallbackActive = false
 
     // Transcription
     var lastTranscription = ""
@@ -428,6 +433,12 @@ final class AppState {
     }
 
     var statusText: String {
+        // Health warnings first — silent failures are the #1 churn cause
+        if micPermissionLost { return "Mic access revoked — fix in System Settings" }
+        if modelLoadFailed && !useCloudTranscription { return "Model download failed — Retry below" }
+        if accessibilityFallbackActive && autoTypeEnabled && !AutoTypeService.isAccessibilityGranted() {
+            return "Text copied to clipboard — grant Accessibility to auto-type"
+        }
         if isModelDownloading { return "Downloading model (\(Int(modelDownloadProgress * 100))%)..." }
         if useCloudTranscription {
             if geminiApiKey.isEmpty && openRouterApiKey.isEmpty { return "Set API key in Settings" }
@@ -647,6 +658,7 @@ final class AppState {
         await MainActor.run {
             isModelDownloading = true
             isModelLoaded = false
+            modelLoadFailed = false
         }
 
         let maxRetries = 3
@@ -675,6 +687,12 @@ final class AppState {
 
         await MainActor.run {
             isModelDownloading = false
+            // All retries exhausted and still no model → surface a Retry button
+            // in the menu instead of leaving the user stuck at "Loading model..."
+            if !isModelLoaded {
+                modelLoadFailed = true
+                logToFile("Model load FAILED after all retries — Retry button shown")
+            }
         }
     }
 
@@ -701,6 +719,15 @@ final class AppState {
 
     @MainActor
     func startRecording() {
+        // Mic permission can be revoked in System Settings AFTER onboarding —
+        // without this check the app would "record" silence with no error.
+        guard PermissionService.microphoneStatus() == .granted else {
+            micPermissionLost = true
+            logToFile("startRecording blocked: microphone permission missing/revoked")
+            return
+        }
+        micPermissionLost = false
+
         // Cloud mode doesn't need local model
         let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
         guard isModelLoaded || (useCloudTranscription && hasCloudKey) else { return }
@@ -1051,6 +1078,10 @@ final class AppState {
         // Auto-type
         if autoTypeEnabled {
             let textToType = outputText + " "
+            // Accessibility gets revoked by macOS after every app update (TCC
+            // signature change). Flag it so statusText + menu warn the user
+            // instead of failing silently — the #1 "app is broken" complaint.
+            accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
             autoTypeService?.typeText(textToType)
             recentOutputLengths.append(textToType.count)
             sessionTotalChars += textToType.count
