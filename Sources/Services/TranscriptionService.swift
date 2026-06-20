@@ -4,7 +4,14 @@ import Foundation
 final class TranscriptionService {
     private var whisperKit: WhisperKit?
 
-    /// Load a Whisper model. Let WhisperKit handle caching + download.
+    /// Load a Whisper model with REAL download progress.
+    ///
+    /// Previously this passed `download: true` to WhisperKitConfig, which
+    /// downloads silently — the onProgress callback was never invoked, so the
+    /// UI froze at "0%" for the entire (often multi-minute) download. New users
+    /// on slow connections assumed it was dead and quit. Now we download
+    /// explicitly via WhisperKit.download(...), which reports real fractional
+    /// progress, THEN load the model from the resolved local folder.
     func loadModel(
         _ model: WhisperModelSize,
         onProgress: @escaping (Double) -> Void
@@ -13,19 +20,33 @@ final class TranscriptionService {
         whisperKit = nil
 
         let modelName = "openai_whisper-\(model.rawValue)"
-        logToFile("Initializing WhisperKit with model: \(modelName)")
+        logToFile("Loading model \(modelName) — starting download/verify")
 
+        // Step 1: download (or verify cached) with live progress.
+        // If already on disk, this returns near-instantly at 100%.
+        let modelFolder = try await WhisperKit.download(
+            variant: modelName,
+            from: "argmaxinc/whisperkit-coreml",
+            progressCallback: { progress in
+                onProgress(progress.fractionCompleted)
+            }
+        )
+        onProgress(1.0)
+        logToFile("Model \(modelName) ready at \(modelFolder.path) — initializing")
+
+        // Step 2: load from the resolved local folder (no second download).
         let config = WhisperKitConfig(
             model: modelName,
+            modelFolder: modelFolder.path,
             verbose: true,
             logLevel: .info,
             prewarm: true,
             load: true,
-            download: true
+            download: false
         )
 
         whisperKit = try await WhisperKit(config)
-        logToFile("WhisperKit initialized successfully")
+        logToFile("WhisperKit initialized successfully (\(modelName))")
     }
 
     /// Transcribe audio samples (16kHz mono Float32)
