@@ -13,6 +13,11 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
 
     // Callbacks
     var onTranscription: ((String) -> Void)?
+    /// v2.6: fires with the ACCUMULATED buffer on every streamed fragment, while
+    /// the user is still speaking. This is the Wispr-style perceived-speed win —
+    /// buffering everything until turnComplete threw away the entire advantage
+    /// of a streaming connection.
+    var onPartial: ((String) -> Void)?
 
     func connect(
         apiKey: String,
@@ -55,7 +60,12 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
             systemPrompt += "\n- Additional style: \(customInstructions)"
         }
 
-        // Setup message — text-only output, no voice response
+        // Setup message — text-only output, no voice response.
+        // v2.6: aggressive endpointing. The REST path already runs a tuned 150ms
+        // pause threshold, but this Live path was left on Gemini's default
+        // (~800ms+) end-of-speech detection — the main source of "dead air"
+        // after finishing a sentence. HIGH sensitivity + 500ms silence window
+        // cuts turn-close latency roughly in half without clipping speech.
         let setup: [String: Any] = [
             "setup": [
                 "model": "models/gemini-2.5-flash-native-audio-preview-12-2025",
@@ -64,6 +74,12 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
                 ],
                 "systemInstruction": [
                     "parts": [["text": systemPrompt]]
+                ],
+                "realtimeInputConfig": [
+                    "automaticActivityDetection": [
+                        "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+                        "silenceDurationMs": 500
+                    ]
                 ]
             ]
         ]
@@ -157,10 +173,17 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
         // Accumulate text from model turn
         if let modelTurn = serverContent["modelTurn"] as? [String: Any],
            let parts = modelTurn["parts"] as? [[String: Any]] {
+            var appended = false
             for part in parts {
                 if let partText = part["text"] as? String, !partText.isEmpty {
                     turnBuffer += partText
+                    appended = true
                 }
+            }
+            // Surface the partial immediately — text can start appearing at the
+            // cursor while the user is still mid-sentence.
+            if appended {
+                onPartial?(turnBuffer)
             }
         }
 

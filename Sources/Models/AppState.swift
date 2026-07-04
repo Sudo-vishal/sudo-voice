@@ -113,6 +113,22 @@ final class AppState {
     // Scratch-that tracking (non-persisted, per session)
     var recentOutputLengths: [Int] = []
 
+    // Live streaming partial-typing state (v2.6 — Wispr-style instant text).
+    // Tracks what we've ALREADY typed for the in-flight Gemini Live turn so the
+    // turn-complete handler can reconcile (append the tail, or delete+retype if
+    // the final differs) instead of double-typing.
+    var livePartialTypedText = ""
+    var liveTurnStartedAt: Date?
+    /// Don't start typing a turn until the buffer clears this length — voice
+    /// commands ("scratch that", "summarize this") and hallucination outputs
+    /// are all shorter, so they never get half-typed and then yanked back.
+    static let livePartialMinChars = 24
+
+    /// Monotonic chunk counter (batch path). The background-cleanup patch only
+    /// applies if no newer chunk has been typed since — otherwise a late
+    /// cleanup result would delete+retype over newer text.
+    var chunkSeq = 0
+
     // Push-to-talk state (non-persisted, per recording session)
     private var pttHeldStart: Date?
     private var pttCancelOnNextStop = false
@@ -760,6 +776,14 @@ final class AppState {
                 }
             }
 
+            // v2.6: type partial text WHILE the user speaks (Wispr-style).
+            // The turn-complete handler reconciles against what was typed.
+            service.onPartial = { [weak self] buffer in
+                Task { @MainActor [weak self] in
+                    self?.handleLivePartial(buffer)
+                }
+            }
+
             // Connect to Gemini Live, then start audio streaming
             Task {
                 do {
@@ -812,6 +836,11 @@ final class AppState {
         isRecording = false
         playRecordingSound("Pop")  // soft thud cue on stop
         floatingIndicator?.hide()
+
+        // v2.6: if the user stopped mid-turn, partial text is already at the
+        // cursor and the turn-complete reconciliation will never arrive —
+        // keep the text, keep scratch-that accounting coherent.
+        flushLivePartialAccounting()
 
         // Disconnect Gemini Live streaming
         audioService?.onAudioStream = nil
@@ -870,13 +899,63 @@ final class AppState {
 
     // MARK: - Live Streaming Pipeline
 
+    /// v2.6: type streamed partial text at the cursor WHILE the user speaks.
+    /// Only the new suffix is typed each time (Gemini native-audio generates
+    /// transcript tokens append-only within a turn, so suffix-typing is safe).
+    @MainActor
+    private func handleLivePartial(_ buffer: String) {
+        guard isRecording, autoTypeEnabled else { return }
+        // Never partial-type things the completion handler would suppress:
+        // noise descriptions and anything short enough to be a voice command.
+        let probe = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if probe.hasPrefix("(") || probe.hasPrefix("[") || probe.hasPrefix("*") { return }
+        if buffer.count < Self.livePartialMinChars && livePartialTypedText.isEmpty { return }
+        guard buffer.count > livePartialTypedText.count,
+              buffer.hasPrefix(livePartialTypedText) else { return }
+
+        if livePartialTypedText.isEmpty {
+            liveTurnStartedAt = Date()
+            accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
+        }
+        let delta = String(buffer.dropFirst(livePartialTypedText.count))
+        autoTypeService?.typeText(delta)
+        livePartialTypedText = buffer
+    }
+
+    /// Flush partial-typing accounting when a turn ends without reconciliation
+    /// (user hit stop mid-turn): keep what's typed, keep scratch-that coherent.
+    @MainActor
+    private func flushLivePartialAccounting() {
+        guard !livePartialTypedText.isEmpty else { return }
+        recentOutputLengths.append(livePartialTypedText.count)
+        sessionTotalChars += livePartialTypedText.count
+        livePartialTypedText = ""
+        liveTurnStartedAt = nil
+    }
+
     /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
     @MainActor
     private func handleLiveTranscription(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = trimmed.lowercased()
 
-        guard !trimmed.isEmpty else { return }
+        // Reconciliation baseline: what handleLivePartial already typed for
+        // this turn. Reset immediately so the next turn starts clean.
+        let partialTyped = livePartialTypedText
+        livePartialTypedText = ""
+        if let t0 = liveTurnStartedAt {
+            logToFile(String(format: "LATENCY live turn: first-char→complete %.0fms, %d chars streamed", Date().timeIntervalSince(t0) * 1000, partialTyped.count))
+            liveTurnStartedAt = nil
+        }
+        // A voice command or suppressed output below must first un-type any
+        // partial text (rare: commands are under the 24-char typing threshold).
+        func eraseTypedPartial() {
+            if !partialTyped.isEmpty {
+                autoTypeService?.deleteCharacters(partialTyped.count)
+            }
+        }
+
+        guard !trimmed.isEmpty else { eraseTypedPartial(); return }
 
         // Hallucination filter
         let hallucinations: Set<String> = [
@@ -886,16 +965,19 @@ final class AppState {
             "subscribe", "like and subscribe", "mm.", "hmm.",
             "mm", "hmm", "uh", "um", "ah", "oh",
         ]
-        if hallucinations.contains(lower) { return }
+        if hallucinations.contains(lower) { eraseTypedPartial(); return }
 
         // Skip noise descriptions
         if (lower.hasPrefix("(") && lower.hasSuffix(")")) ||
            (lower.hasPrefix("[") && lower.hasSuffix("]")) ||
-           (lower.hasPrefix("*") && lower.hasSuffix("*")) { return }
+           (lower.hasPrefix("*") && lower.hasSuffix("*")) { eraseTypedPartial(); return }
 
         // Voice command detection
         if scratchThatEnabled {
             let command = VoiceCommandService.detect(trimmed)
+            // Commands act on PREVIOUS output — any partial text typed for this
+            // turn must go first (rare: commands sit under the typing threshold)
+            if command != .none { eraseTypedPartial() }
             switch command {
             case .scratchThat:
                 if let lastLength = recentOutputLengths.popLast() {
@@ -987,6 +1069,7 @@ final class AppState {
         if needsSummary {
             // Async path — summarize first, then emit. User sees a slight delay then the summary appears.
             let captureIsStandalone = isStandaloneSummarize
+            let capturePartial = partialTyped
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 let summary = await self.llmCleanupService?.summarizeWithProvider(
@@ -1001,7 +1084,8 @@ final class AppState {
                     outputText: summary,
                     cloudCleaned: summary,
                     llmCleanupModel: self.selectedLLMProvider.modelName,
-                    isStandaloneSummarize: captureIsStandalone
+                    isStandaloneSummarize: captureIsStandalone,
+                    partialTyped: capturePartial
                 )
             }
         } else {
@@ -1016,7 +1100,8 @@ final class AppState {
                 outputText: outputText,
                 cloudCleaned: cloudCleaned,
                 llmCleanupModel: nil,
-                isStandaloneSummarize: false
+                isStandaloneSummarize: false,
+                partialTyped: partialTyped
             )
         }
     }
@@ -1032,7 +1117,8 @@ final class AppState {
         outputText: String,
         cloudCleaned: String?,
         llmCleanupModel: String?,
-        isStandaloneSummarize: Bool = false
+        isStandaloneSummarize: Bool = false,
+        partialTyped: String = ""
     ) {
         lastTranscription = outputText
 
@@ -1075,14 +1161,29 @@ final class AppState {
             logToFile("Standalone summarize: deleted prior \(lastLength) chars before summary")
         }
 
-        // Auto-type
+        // Auto-type — reconcile against any partial text already streamed to
+        // the cursor while the user was speaking (v2.6).
         if autoTypeEnabled {
             let textToType = outputText + " "
             // Accessibility gets revoked by macOS after every app update (TCC
             // signature change). Flag it so statusText + menu warn the user
             // instead of failing silently — the #1 "app is broken" complaint.
             accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
-            autoTypeService?.typeText(textToType)
+
+            if partialTyped.isEmpty {
+                autoTypeService?.typeText(textToType)
+            } else if outputText == partialTyped {
+                // Streamed text already matches — just close with the space
+                autoTypeService?.typeText(" ")
+            } else if outputText.hasPrefix(partialTyped) {
+                // Final extends the streamed prefix — type only the tail
+                autoTypeService?.typeText(String(outputText.dropFirst(partialTyped.count)) + " ")
+            } else {
+                // Punctuation/summary pass changed the text — replace in place
+                autoTypeService?.deleteCharacters(partialTyped.count)
+                autoTypeService?.typeText(textToType)
+            }
+
             recentOutputLengths.append(textToType.count)
             sessionTotalChars += textToType.count
             if recentOutputLengths.count > 20 {
@@ -1282,36 +1383,26 @@ final class AppState {
                 && summarizeRawInput.isEmpty
                 && !lastTranscription.isEmpty
 
-            // LLM cleanup — skipped for .raw mode (user wants no editing); also skipped on cloud path
-            let llmOutput: String
+            // LLM cleanup — v2.6: NEVER blocks typing anymore. The old code
+            // serially awaited a second LLM round-trip here (+0.5-1s of dead
+            // air after every phrase — the whole "slower than Wispr" gap).
+            // Now: raw text types immediately below; cleanup runs in the
+            // background and patches the typed text in place when it lands.
+            let llmOutput: String = trimmed
             var llmCleanupRanThisChunk = false
-            if effectiveMode == .raw {
-                llmOutput = trimmed
-            } else if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
-                // Cloud path: already cleaned the text
-                llmOutput = trimmed
-            } else {
-                // Local path: optional LLM cleanup
+            var deferCleanup = false
+            if effectiveMode == .clean,
+               !(useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty)) {
                 let wordCount = trimmed.split(separator: " ").count
-                logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday)")
+                logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday) (deferred)")
                 if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
                     llmCleanupsToday += 1
                     llmCleanupRanThisChunk = true
-                    let cleaned = await llmCleanupService?.cleanWithProvider(
-                        trimmed,
-                        provider: selectedLLMProvider,
-                        apiKeys: allAPIKeys(),
-                        customInstructions: customStyleInstructions
-                    ) ?? trimmed
-                    if cleaned.isEmpty {
-                        await MainActor.run { isProcessing = false }
-                        return
-                    }
-                    llmOutput = cleaned
-                } else {
-                    llmOutput = trimmed
+                    deferCleanup = true
                 }
             }
+            // (.summary mode: the summarize call below handles quality itself —
+            // the old pre-summary cleanup pass was a redundant serial LLM call.)
 
             // Smart punctuation — skipped for .raw mode
             let finalText: String
@@ -1423,12 +1514,57 @@ final class AppState {
                         recentOutputLengths.removeFirst()
                     }
                 }
+                chunkSeq += 1
 
                 isProcessing = false
                 if isRecording {
                     floatingIndicator?.update(isRecording: true, isProcessing: false)
                 } else {
                     floatingIndicator?.hide()
+                }
+            }
+
+            // v2.6: background cleanup patch. The raw (punctuated) text is
+            // already at the cursor — when the LLM result lands ~300-800ms
+            // later and differs, replace it in place. Skipped if a newer chunk
+            // has been typed since (chunkSeq guard) so we never stomp new text.
+            if deferCleanup {
+                let capturedRaw = trimmed
+                let capturedTyped = outputText + " "
+                let mySeq: Int = await MainActor.run { chunkSeq }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let cleaned = await self.llmCleanupService?.cleanWithProvider(
+                        capturedRaw,
+                        provider: self.selectedLLMProvider,
+                        apiKeys: self.allAPIKeys(),
+                        customInstructions: self.customStyleInstructions
+                    ) ?? capturedRaw
+                    guard !cleaned.isEmpty, cleaned != capturedRaw else { return }
+                    let finalCleaned = self.smartPunctuationEnabled
+                        ? SmartPunctuationService.apply(cleaned) : cleaned
+                    guard finalCleaned + " " != capturedTyped else { return }
+                    guard self.chunkSeq == mySeq else {
+                        logToFile("Cleanup patch skipped — newer chunk typed since")
+                        return
+                    }
+                    if self.autoTypeEnabled && AutoTypeService.isAccessibilityGranted() {
+                        let newTyped = finalCleaned + " "
+                        self.autoTypeService?.deleteCharacters(capturedTyped.count)
+                        self.autoTypeService?.typeText(newTyped)
+                        if let last = self.recentOutputLengths.popLast() {
+                            self.sessionTotalChars -= last
+                        }
+                        self.recentOutputLengths.append(newTyped.count)
+                        self.sessionTotalChars += newTyped.count
+                        logToFile("Cleanup patched in-place (\(capturedTyped.count)→\(newTyped.count) chars)")
+                    }
+                    self.lastTranscription = finalCleaned
+                    if !self.transcriptionHistory.isEmpty {
+                        self.transcriptionHistory[0] = TranscriptionEntry(
+                            originalText: capturedRaw, cleanedText: finalCleaned)
+                        self.saveHistory()
+                    }
                 }
             }
         } catch {
