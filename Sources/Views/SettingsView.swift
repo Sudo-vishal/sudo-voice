@@ -52,6 +52,8 @@ struct SettingsView: View {
                 .tag(SettingsTab.account)
         }
         .frame(minWidth: 760, minHeight: 480)
+        .tint(SVTheme.green)
+        .preferredColorScheme(.dark)
         .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
             selectedTab = .license
         }
@@ -167,7 +169,7 @@ private struct GeneralTab: View {
                                 .frame(width: 110, alignment: .trailing)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            TextField("AIwithVishal", text: $state.listeningLabel)
+                            TextField("sudovoice", text: $state.listeningLabel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -593,8 +595,8 @@ private struct LicenseTab: View {
     @State private var showingDeactivateConfirm = false
     @State private var deactivateMessage: String?
 
-    /// Brand neon cyan #18D1E0 (Rule 58)
-    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
+    /// SudoVoice phosphor green accent
+    private static let brandAccent = SVTheme.green
 
     /// Mirrors AppState.isDevMode (which is `private`) without modifying MAC-006 territory.
     /// Same file-existence check as `selectedModel` getter (AppState.swift:82-83) and
@@ -619,7 +621,7 @@ private struct LicenseTab: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Image(systemName: appState.isPro ? "checkmark.seal.fill" : "lock.fill")
-                                .foregroundStyle(appState.isPro ? Self.brandCyan : .secondary)
+                                .foregroundStyle(appState.isPro ? Self.brandAccent : .secondary)
                             Text(appState.isPro ? "Pro" : "Free")
                                 .font(.headline)
                             Spacer()
@@ -700,7 +702,7 @@ private struct LicenseTab: View {
                             .foregroundStyle(.secondary)
                         Link("sudovoice.com/pricing", destination: URL(string: "https://sudovoice.com/pricing")!)
                             .font(.caption)
-                            .foregroundStyle(Self.brandCyan)
+                            .foregroundStyle(Self.brandAccent)
                     }
                     .padding(.vertical, 4)
                 }
@@ -757,8 +759,8 @@ private struct AccountTab: View {
     @State private var showSignIn = false
     @State private var isLoading = true
 
-    /// Brand neon cyan #18D1E0 (Rule 58)
-    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
+    /// SudoVoice phosphor green accent
+    private static let brandAccent = SVTheme.green
 
     var body: some View {
         ScrollView {
@@ -775,7 +777,7 @@ private struct AccountTab: View {
                         } else if let email = signedInEmail {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(Self.brandCyan)
+                                    .foregroundStyle(Self.brandAccent)
                                 Text(email).font(.body)
                                 Spacer()
                             }
@@ -788,7 +790,7 @@ private struct AccountTab: View {
                             }
                             .buttonStyle(.borderless)
                             .font(.caption)
-                            .foregroundStyle(Self.brandCyan)
+                            .foregroundStyle(Self.brandAccent)
                         } else {
                             Text("You're not signed in.")
                                 .font(.body)

@@ -7,13 +7,13 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("SudoVoice")
-                    .font(.title2.bold())
-                Text("Community Edition")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // Header — sudo/voice wordmark, terminal style
+            HStack(spacing: 8) {
+                (Text("sudo").foregroundColor(SVTheme.green) + Text("voice").foregroundColor(.white))
+                    .font(.system(.title2, design: .monospaced).bold())
+                Text("community edition")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(SVTheme.muted)
             }
             .padding(.top, 20)
 
@@ -21,7 +21,7 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(i <= currentStep ? Color.accentColor : Color.gray.opacity(0.3))
+                        .fill(i <= currentStep ? SVTheme.green : Color.white.opacity(0.15))
                         .frame(width: 8, height: 8)
                 }
             }
@@ -42,6 +42,9 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
         }
         .frame(width: 420, height: 360)
+        .background(SVTheme.bg)
+        .tint(SVTheme.green)
+        .preferredColorScheme(.dark)
     }
 
     private func completeOnboarding() {
@@ -60,7 +63,7 @@ private struct MicrophoneStep: View {
         VStack(spacing: 16) {
             Image(systemName: "mic.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.blue)
+                .foregroundStyle(SVTheme.green)
 
             Text("Microphone Access")
                 .font(.headline)
@@ -106,7 +109,7 @@ private struct AccessibilityStep: View {
         VStack(spacing: 16) {
             Image(systemName: "hand.raised.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.orange)
+                .foregroundStyle(SVTheme.amber)
 
             Text("Accessibility Access")
                 .font(.headline)
@@ -167,7 +170,7 @@ private struct ModelStep: View {
         VStack(spacing: 16) {
             Image(systemName: "cpu.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.purple)
+                .foregroundStyle(SVTheme.cyan)
 
             Text("Choose Your Model")
                 .font(.headline)
@@ -181,21 +184,22 @@ private struct ModelStep: View {
                 ForEach(WhisperModelSize.allCases) { model in
                     HStack {
                         Image(systemName: appState.selectedModel == model ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(appState.selectedModel == model ? .blue : .gray)
+                            .foregroundStyle(appState.selectedModel == model ? SVTheme.green : SVTheme.muted)
                         Text(model.displayName)
                         Spacer()
                         if model == .base {
                             Text("RECOMMENDED")
-                                .font(.caption2.bold())
+                                .font(.system(.caption2, design: .monospaced).bold())
+                                .foregroundStyle(SVTheme.green)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(.green.opacity(0.2))
-                                .clipShape(Capsule())
+                                .background(SVTheme.green.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(appState.selectedModel == model ? Color.accentColor.opacity(0.1) : Color.clear)
+                    .background(appState.selectedModel == model ? SVTheme.green.opacity(0.08) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .contentShape(Rectangle())
                     .onTapGesture {

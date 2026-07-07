@@ -62,12 +62,12 @@ class WhisperIME : InputMethodService() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 8, 16, 8)
-            setBackgroundColor(0xFF1A1A2E.toInt())
+            setBackgroundColor(0xFF0A1220.toInt())
         }
 
         statusText = TextView(this).apply {
             text = "Tap mic to speak"
-            setTextColor(0xFFCCCCCC.toInt())
+            setTextColor(0xFF8FA3BF.toInt())
             textSize = 14f
             setPadding(8, 4, 8, 4)
         }
@@ -80,7 +80,7 @@ class WhisperIME : InputMethodService() {
 
         micButton = ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_btn_speak_now)
-            setBackgroundColor(0xFF16213E.toInt())
+            setBackgroundColor(0xFF14213A.toInt())
             setPadding(32, 32, 32, 32)
             setOnClickListener { toggleListening() }
         }
@@ -101,7 +101,7 @@ class WhisperIME : InputMethodService() {
     private fun startListening() {
         isListening = true
         statusText?.text = "Listening..."
-        micButton?.setBackgroundColor(0xFF0F3460.toInt())
+        micButton?.setBackgroundColor(0xFF00C853.toInt())
 
         audioCapture?.startRecording(
             chunkDuration = 2.0f,
@@ -117,7 +117,7 @@ class WhisperIME : InputMethodService() {
         isListening = false
         audioCapture?.stopRecording()
         statusText?.text = "Tap mic to speak"
-        micButton?.setBackgroundColor(0xFF16213E.toInt())
+        micButton?.setBackgroundColor(0xFF14213A.toInt())
     }
 
     private suspend fun processChunk(samples: FloatArray) {

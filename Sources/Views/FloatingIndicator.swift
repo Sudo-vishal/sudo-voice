@@ -42,7 +42,7 @@ final class NeonCapsuleView: NSView {
     private var waveBars: [CALayer] = []
     private let waveBarCount = 5
 
-    private var currentColor: NSColor = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0)
+    private var currentColor: NSColor = SVTheme.nsGreen
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -59,22 +59,22 @@ final class NeonCapsuleView: NSView {
         guard let layer = self.layer else { return }
         layer.masksToBounds = false
 
-        // Dark capsule background
-        layer.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
-        layer.cornerRadius = 18
-        layer.borderWidth = 1.2
-        layer.borderColor = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 0.5).cgColor
+        // SudoVoice terminal chip: deep navy panel, squared corners, hairline border
+        layer.backgroundColor = SVTheme.nsPanel.withAlphaComponent(0.96).cgColor
+        layer.cornerRadius = 10
+        layer.borderWidth = 1.0
+        layer.borderColor = SVTheme.nsGreen.withAlphaComponent(0.45).cgColor
 
-        // Neon glow
-        layer.shadowColor = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0).cgColor
-        layer.shadowRadius = 8
-        layer.shadowOpacity = 0.3
+        // Soft phosphor glow
+        layer.shadowColor = SVTheme.nsGreen.cgColor
+        layer.shadowRadius = 10
+        layer.shadowOpacity = 0.22
         layer.shadowOffset = .zero
 
         // Dot
         dotLayer.frame = CGRect(x: 14, y: 14, width: 8, height: 8)
         dotLayer.cornerRadius = 4
-        dotLayer.backgroundColor = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0).cgColor
+        dotLayer.backgroundColor = SVTheme.nsGreen.cgColor
         dotLayer.shadowColor = dotLayer.backgroundColor
         dotLayer.shadowRadius = 5
         dotLayer.shadowOpacity = 0.9
@@ -83,8 +83,8 @@ final class NeonCapsuleView: NSView {
     }
 
     private func setupLabel() {
-        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
-        label.textColor = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0)
+        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        label.textColor = SVTheme.nsGreen
         label.backgroundColor = .clear
         label.isBezeled = false
         label.isEditable = false
@@ -114,17 +114,17 @@ final class NeonCapsuleView: NSView {
         let text: String
 
         if isRecording {
-            color = NSColor(red: 0.0, green: 0.9, blue: 1.0, alpha: 1.0)
+            color = SVTheme.nsGreen
             // User-customizable brand name, set in Settings → General. Any user can
-            // put their own name; defaults to AIwithVishal.
+            // put their own name; defaults to the sudovoice wordmark.
             let stored = UserDefaults.standard.string(forKey: "listeningLabel") ?? ""
-            text = stored.isEmpty ? "AIwithVishal" : stored
+            text = stored.isEmpty ? "sudovoice" : stored
         } else if isProcessing {
-            color = NSColor(red: 0.6, green: 0.4, blue: 1.0, alpha: 1.0)
-            text = "AI TYPING"
+            color = SVTheme.nsCyan
+            text = "typing…"
         } else {
-            color = NSColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0)
-            text = "READY"
+            color = SVTheme.nsMuted
+            text = "$ ready"
         }
 
         currentColor = color

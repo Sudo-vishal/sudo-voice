@@ -272,12 +272,12 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "scratchThatEnabled") }
     }
 
-    /// Text shown on the floating capsule while recording. Defaults to the
-    /// AIwithVishal brand; any user can change it to their name in Settings.
+    /// Text shown on the floating chip while recording. Defaults to the
+    /// sudovoice wordmark; any user can change it to their name in Settings.
     var listeningLabel: String {
         get {
             let stored = UserDefaults.standard.string(forKey: "listeningLabel") ?? ""
-            return stored.isEmpty ? "AIwithVishal" : stored
+            return stored.isEmpty ? "sudovoice" : stored
         }
         set { UserDefaults.standard.set(newValue, forKey: "listeningLabel") }
     }

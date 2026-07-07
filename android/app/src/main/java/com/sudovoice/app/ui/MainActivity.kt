@@ -168,7 +168,7 @@ fun MainScreen(
                 modifier = Modifier.size(120.dp),
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRecording) Color(0xFFE53935) else Color(0xFF1E88E5)
+                    containerColor = if (isRecording) Color(0xFFE53935) else Color(0xFF00E676)
                 ),
                 enabled = isModelLoaded && !AppState.isFreeTierExhausted
             ) {
@@ -176,7 +176,7 @@ fun MainScreen(
                     if (isRecording) "STOP" else "REC",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = if (isRecording) Color.White else Color(0xFF03140B)
                 )
             }
 
@@ -268,10 +268,10 @@ private suspend fun processChunk(
 fun SudoVoiceTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF4FC3F7),
-            secondary = Color(0xFF80CBC4),
-            surface = Color(0xFF1A1A2E),
-            background = Color(0xFF0F0F23)
+            primary = Color(0xFF00E676),
+            secondary = Color(0xFF4FC3F7),
+            surface = Color(0xFF0A1220),
+            background = Color(0xFF04070F)
         ),
         content = content
     )

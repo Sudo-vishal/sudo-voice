@@ -12,9 +12,6 @@ struct SignInView: View {
     @State private var errorMessage: String?
     @State private var closeIsHovering = false
 
-    /// Brand neon cyan #18D1E0 (Rule 58)
-    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
-
     enum SignInStep {
         case email      // collect email
         case code       // collect 6-digit OTP
@@ -39,7 +36,7 @@ struct SignInView: View {
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
-                    .foregroundStyle(closeIsHovering ? Self.brandCyan : Color(white: 0.6))
+                    .foregroundStyle(closeIsHovering ? SVTheme.green : Color(white: 0.6))
             }
             .buttonStyle(.plain)
             .padding(12)
@@ -48,6 +45,9 @@ struct SignInView: View {
                 closeIsHovering = hovering
             }
         }
+        .background(SVTheme.bg)
+        .tint(SVTheme.green)
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Step 1: Email entry
@@ -56,7 +56,7 @@ struct SignInView: View {
         VStack(spacing: 12) {
             Image(systemName: "envelope.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(Self.brandCyan)
+                .foregroundStyle(SVTheme.green)
 
             Text("Sign in to SudoVoice")
                 .font(.title3.bold())
@@ -99,7 +99,7 @@ struct SignInView: View {
         VStack(spacing: 12) {
             Image(systemName: "key.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(Self.brandCyan)
+                .foregroundStyle(SVTheme.green)
 
             Text("Check your email")
                 .font(.title3.bold())
@@ -151,7 +151,7 @@ struct SignInView: View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(Self.brandCyan)
+                .foregroundStyle(SVTheme.green)
 
             Text("Signed in")
                 .font(.title3.bold())

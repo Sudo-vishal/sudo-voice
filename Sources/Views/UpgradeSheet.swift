@@ -9,15 +9,16 @@ import AppKit
 struct UpgradeSheet: View {
     @Environment(AppState.self) private var appState
 
-    /// Brand neon cyan #18D1E0 (Rule 58)
-    private static let brandCyan = Color(red: 0.094, green: 0.820, blue: 0.878)
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Text("// free tier exhausted")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(SVTheme.muted)
+
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
                     .font(.title2)
-                    .foregroundStyle(Self.brandCyan)
+                    .foregroundStyle(SVTheme.green)
                 Text("You've hit today's free limit")
                     .font(.title3.bold())
             }
@@ -38,8 +39,8 @@ struct UpgradeSheet: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity)
-                    .background(Self.brandCyan.opacity(0.18))
-                    .foregroundStyle(Self.brandCyan)
+                    .background(SVTheme.green)
+                    .foregroundStyle(SVTheme.greenDark)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
@@ -53,8 +54,8 @@ struct UpgradeSheet: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity)
-                    .background(Self.brandCyan.opacity(0.10))
-                    .foregroundStyle(Self.brandCyan)
+                    .background(SVTheme.green.opacity(0.12))
+                    .foregroundStyle(SVTheme.green)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
@@ -75,6 +76,9 @@ struct UpgradeSheet: View {
         }
         .padding(20)
         .frame(width: 380)
+        .background(SVTheme.bg)
+        .tint(SVTheme.green)
+        .preferredColorScheme(.dark)
     }
 
     private func openExternal(_ urlString: String) {
