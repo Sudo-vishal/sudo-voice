@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- IME configuration for WhisperIME voice keyboard -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="com.indianwhisper.app.ui.SettingsActivity">
+    android:settingsActivity="com.sudovoice.app.ui.SettingsActivity">
     <subtype
         android:label="English (Voice)"
         android:imeSubtypeLocale="en_US"

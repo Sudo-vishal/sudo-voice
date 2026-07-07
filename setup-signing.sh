@@ -13,10 +13,10 @@
 set -e
 set -o pipefail
 
-CERT_NAME="IndianWhisper Dev"
-KEYCHAIN_NAME="indianwhisper-signing.keychain-db"
+CERT_NAME="SudoVoice Dev"
+KEYCHAIN_NAME="sudovoice-signing.keychain-db"
 KEYCHAIN_PATH="$HOME/Library/Keychains/$KEYCHAIN_NAME"
-KEYCHAIN_PASSWORD="indianwhisper-local"
+KEYCHAIN_PASSWORD="sudovoice-local"
 
 # Already set up? Skip.
 if security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null | grep -q "$CERT_NAME"; then
@@ -45,8 +45,8 @@ default_md = sha256
 distinguished_name = dn
 req_extensions = v3_req
 [ dn ]
-CN = IndianWhisper Dev
-O = AIwithDhruv
+CN = SudoVoice Dev
+O = AIwithVishal
 [ v3_req ]
 basicConstraints = critical, CA:FALSE
 keyUsage = critical, digitalSignature

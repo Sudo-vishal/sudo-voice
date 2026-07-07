@@ -1,4 +1,4 @@
-package com.indianwhisper.app.model
+package com.sudovoice.app.model
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

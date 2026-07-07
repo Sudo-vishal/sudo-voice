@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy IndianWhisper — build release, sign, reset TCC, launch
+# Deploy SudoVoice — build release, sign, reset TCC, launch
 # Usage: ./deploy.sh             (build + deploy locally)
 #        ./deploy.sh dmg         (build + create DMG + generate release manifest)
 #        ./deploy.sh release     (dmg + copy to website for deployment)
@@ -8,8 +8,8 @@ set -o pipefail     # without this, `swift build ... | tail -5` silently swallow
 
 cd "$(dirname "$0")"
 
-APP_NAME="IndianWhisper"
-BUNDLE_ID="com.indianwhisper.app"
+APP_NAME="SudoVoice"
+BUNDLE_ID="com.sudovoice.app"
 APP_PATH="/Applications/${APP_NAME}.app"
 BUILD_PATH=".build/arm64-apple-macosx/release/${APP_NAME}"
 WEBSITE_DIR="../website/public/releases"
@@ -96,7 +96,7 @@ if [ "$1" = "dmg" ] || [ "$1" = "release" ]; then
   "version": "${VERSION}",
   "minimumOS": "14.0",
   "releaseDate": "$(date -u +%Y-%m-%d)",
-  "downloadURL": "https://indianwhisper.com/releases/${DMG_NAME}",
+  "downloadURL": "https://sudovoice.com/releases/${DMG_NAME}",
   "releaseNotes": ${NOTES_JSON},
   "sha256": "${SHA256}"
 }
@@ -119,7 +119,7 @@ fi
 # --- Normal Deploy ---
 echo "Stopping old app..."
 pkill -f "$APP_NAME" 2>/dev/null || true
-pkill -f WhisperAiwithDhruv 2>/dev/null || true
+pkill -f SudoVoice 2>/dev/null || true
 sleep 1
 
 # Ensure bundle skeleton exists
@@ -147,9 +147,9 @@ echo "Signing..."
 # Use stable self-signed identity if present so TCC (Accessibility/Mic) persists
 # across rebuilds. Falls back to ad-hoc if identity missing. Run ./setup-signing.sh
 # once to create the identity.
-SIGN_ID=$(security find-certificate -c "IndianWhisper Dev" -Z 2>/dev/null | awk '/SHA-1 hash/{print $NF}' || true)
+SIGN_ID=$(security find-certificate -c "SudoVoice Dev" -Z 2>/dev/null | awk '/SHA-1 hash/{print $NF}' || true)
 if [ -n "$SIGN_ID" ]; then
-    echo "  Using stable identity: $SIGN_ID (IndianWhisper Dev)"
+    echo "  Using stable identity: $SIGN_ID (SudoVoice Dev)"
     codesign --force --sign "$SIGN_ID" "$APP_PATH"
 else
     echo "  No stable identity found — ad-hoc signing (run ./setup-signing.sh to fix)"
@@ -166,4 +166,4 @@ echo "Launching..."
 open "$APP_PATH"
 
 echo "Done! Grant accessibility when prompted."
-echo "IndianWhisper v${VERSION} is running in your menu bar."
+echo "SudoVoice v${VERSION} is running in your menu bar."

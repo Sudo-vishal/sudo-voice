@@ -4,7 +4,7 @@ import AppKit
 extension Notification.Name {
     /// Posted by UpgradeSheet's "I'll enter my key in Settings" button.
     /// SettingsWindowManager opens the Settings window; SettingsView switches to the License tab.
-    static let openLicenseSettings = Notification.Name("indianwhisper.openLicenseSettings")
+    static let openLicenseSettings = Notification.Name("sudovoice.openLicenseSettings")
 }
 
 /// Force-instantiates `SettingsWindowManager.shared` so its NotificationCenter observer
@@ -51,7 +51,7 @@ private final class SettingsWindowManager {
             backing: .buffered,
             defer: false
         )
-        w.title = "IndianWhisper Settings"
+        w.title = "SudoVoice Settings"
         w.contentView = hostingView
         w.center()
         w.isReleasedWhenClosed = false

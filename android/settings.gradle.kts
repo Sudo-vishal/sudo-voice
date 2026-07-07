@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "IndianWhisper"
+rootProject.name = "SudoVoice"
 include(":app")

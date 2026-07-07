@@ -1,4 +1,4 @@
-package com.indianwhisper.app.service
+package com.sudovoice.app.service
 
 import android.media.AudioFormat
 import android.media.AudioRecord

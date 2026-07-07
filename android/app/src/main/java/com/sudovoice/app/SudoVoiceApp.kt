@@ -1,16 +1,16 @@
-package com.indianwhisper.app
+package com.sudovoice.app
 
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 
-class IndianWhisperApp : Application() {
+class SudoVoiceApp : Application() {
 
     companion object {
         const val CHANNEL_RECORDING = "recording_channel"
         const val CHANNEL_STATUS = "status_channel"
-        lateinit var instance: IndianWhisperApp
+        lateinit var instance: SudoVoiceApp
             private set
     }
 

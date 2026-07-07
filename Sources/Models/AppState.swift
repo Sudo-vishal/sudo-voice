@@ -138,8 +138,8 @@ final class AppState {
     var selectedModel: WhisperModelSize {
         get {
             let model = WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "selectedModel") ?? "base") ?? .base
-            let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
-                || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+            let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
+                || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
             if devConfigExists { return model }
             if !isPro && !model.isFree { return .base }
             return model
@@ -206,7 +206,7 @@ final class AppState {
 
     /// Push-to-talk modifier key. Setter updates the persisted UserDefaults
     /// AND re-registers the global flagsChanged monitor on HotkeyService.
-    /// Default = .leftOption (Dhruv reserves Right Option for Wispr Flow).
+    /// Default = .leftOption (Right Option is left free for other dictation tools).
     var pttKey: PTTKey {
         get { hotkeyService?.pttKey ?? PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "leftOption") ?? .leftOption }
         set {
@@ -273,11 +273,11 @@ final class AppState {
     }
 
     /// Text shown on the floating capsule while recording. Defaults to the
-    /// AIwithDhruv brand; any user can change it to their name in Settings.
+    /// AIwithVishal brand; any user can change it to their name in Settings.
     var listeningLabel: String {
         get {
             let stored = UserDefaults.standard.string(forKey: "listeningLabel") ?? ""
-            return stored.isEmpty ? "AIwithDhruv" : stored
+            return stored.isEmpty ? "AIwithVishal" : stored
         }
         set { UserDefaults.standard.set(newValue, forKey: "listeningLabel") }
     }
@@ -342,8 +342,8 @@ final class AppState {
     }
 
     var canUseLLMCleanup: Bool {
-        let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
-            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+        let devConfigExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
         if devConfigExists { return true }
         return isPro || llmCleanupsToday < FreeTierLimits.llmCleanupsPerDay
     }
@@ -406,8 +406,8 @@ final class AppState {
             return key
         }
         let configDir = FileManager.default.homeDirectoryForCurrentUser
-        let envPath = configDir.appendingPathComponent(".config/indianwhisper/.env").path
-        let legacyPath = configDir.appendingPathComponent(".config/whisper-aiwithdhruv/.env").path
+        let envPath = configDir.appendingPathComponent(".config/sudovoice/.env").path
+        let legacyPath = configDir.appendingPathComponent(".config/sudovoice/.env").path
         let actualPath = FileManager.default.fileExists(atPath: envPath) ? envPath : legacyPath
         if let contents = try? String(contentsOfFile: actualPath, encoding: .utf8) {
             for line in contents.components(separatedBy: .newlines) {
@@ -495,8 +495,8 @@ final class AppState {
     // MARK: - Lifecycle
 
     private var isDevMode: Bool {
-        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
-            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
     }
 
     func setup() async {
@@ -826,7 +826,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("[IndianWhisper] Recording error: \(error)")
+            print("[SudoVoice] Recording error: \(error)")
             isRecording = false
         }
     }
@@ -1568,7 +1568,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("[IndianWhisper] Transcription error: \(error)")
+            print("[SudoVoice] Transcription error: \(error)")
             logToFile("Transcription error: \(error)")
             await MainActor.run {
                 isProcessing = false

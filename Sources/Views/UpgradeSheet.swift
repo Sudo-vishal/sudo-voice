@@ -29,7 +29,7 @@ struct UpgradeSheet: View {
             Divider()
 
             VStack(spacing: 8) {
-                Button(action: { openExternal("https://indianwhisper.com/pricing") }) {
+                Button(action: { openExternal("https://sudovoice.com/pricing") }) {
                     HStack {
                         Text("Get Pro — $12/month").font(.body.bold())
                         Spacer()
@@ -44,7 +44,7 @@ struct UpgradeSheet: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: { openExternal("https://indianwhisper.com/pricing#lifetime") }) {
+                Button(action: { openExternal("https://sudovoice.com/pricing#lifetime") }) {
                     HStack {
                         Text("Get Lifetime — $249").font(.body.bold())
                         Spacer()
@@ -111,7 +111,7 @@ final class UpgradeWindowController {
             backing: .buffered,
             defer: false
         )
-        w.title = "Upgrade IndianWhisper"
+        w.title = "Upgrade SudoVoice"
         w.contentView = hostingView
         w.center()
         w.isReleasedWhenClosed = false
@@ -129,7 +129,7 @@ final class UpgradeWindowController {
 // MARK: - Observer
 
 /// Binds AppState.showUpgradePrompt → UpgradeWindowController.show().
-/// Started once from WhisperAiwithDhruvApp.init() after setup() completes.
+/// Started once from SudoVoiceApp.init() after setup() completes.
 @MainActor
 final class UpgradePromptObserver {
     static let shared = UpgradePromptObserver()

@@ -73,7 +73,7 @@ final class HotkeyService {
     private static let pttDebounceSec: TimeInterval = 0.1
 
     /// Currently configured PTT key. Persisted in UserDefaults.
-    /// Default: Left Option (Right Option is reserved for Wispr Flow on Dhruv's setup).
+    /// Default: Left Option (Right Option is left free for other dictation tools).
     var pttKey: PTTKey {
         get { PTTKey(rawValue: UserDefaults.standard.string(forKey: "pttKey") ?? "leftOption") ?? .leftOption }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "pttKey") }

@@ -1,4 +1,4 @@
-package com.indianwhisper.app.ui
+package com.sudovoice.app.ui
 
 import android.Manifest
 import android.content.Intent
@@ -21,11 +21,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.indianwhisper.app.model.AppState
-import com.indianwhisper.app.model.FreeTierLimits
-import com.indianwhisper.app.service.AudioCaptureService
-import com.indianwhisper.app.service.LLMCleanupService
-import com.indianwhisper.app.service.WhisperService
+import com.sudovoice.app.model.AppState
+import com.sudovoice.app.model.FreeTierLimits
+import com.sudovoice.app.service.AudioCaptureService
+import com.sudovoice.app.service.LLMCleanupService
+import com.sudovoice.app.service.WhisperService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            IndianWhisperTheme {
+            SudoVoiceTheme {
                 MainScreen(
                     whisperService = whisperService!!,
                     audioCapture = audioCapture!!,
@@ -104,9 +104,9 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("IndianWhisper", fontWeight = FontWeight.Bold)
+                        Text("SudoVoice", fontWeight = FontWeight.Bold)
                         Text(
-                            "by AiwithDhruv",
+                            "by AiwithVishal",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -265,7 +265,7 @@ private suspend fun processChunk(
 }
 
 @Composable
-fun IndianWhisperTheme(content: @Composable () -> Unit) {
+fun SudoVoiceTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Color(0xFF4FC3F7),

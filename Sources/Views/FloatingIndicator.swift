@@ -116,9 +116,9 @@ final class NeonCapsuleView: NSView {
         if isRecording {
             color = NSColor(red: 0.0, green: 0.9, blue: 1.0, alpha: 1.0)
             // User-customizable brand name, set in Settings → General. Any user can
-            // put their own name; defaults to AIwithDhruv.
+            // put their own name; defaults to AIwithVishal.
             let stored = UserDefaults.standard.string(forKey: "listeningLabel") ?? ""
-            text = stored.isEmpty ? "AIwithDhruv" : stored
+            text = stored.isEmpty ? "AIwithVishal" : stored
         } else if isProcessing {
             color = NSColor(red: 0.6, green: 0.4, blue: 1.0, alpha: 1.0)
             text = "AI TYPING"

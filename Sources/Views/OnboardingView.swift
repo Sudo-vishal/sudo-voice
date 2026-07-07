@@ -9,7 +9,7 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("IndianWhisper")
+                Text("SudoVoice")
                     .font(.title2.bold())
                 Text("Community Edition")
                     .font(.caption)
@@ -65,7 +65,7 @@ private struct MicrophoneStep: View {
             Text("Microphone Access")
                 .font(.headline)
 
-            Text("IndianWhisper needs microphone access to transcribe your voice. All processing happens locally on your Mac.")
+            Text("SudoVoice needs microphone access to transcribe your voice. All processing happens locally on your Mac.")
                 .multilineTextAlignment(.center)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -132,7 +132,7 @@ private struct AccessibilityStep: View {
                 }
                 .buttonStyle(.borderedProminent)
 
-                Text("Toggle IndianWhisper in System Settings → Privacy → Accessibility")
+                Text("Toggle SudoVoice in System Settings → Privacy → Accessibility")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -213,7 +213,7 @@ private struct ModelStep: View {
 
             HStack {
                 Spacer()
-                Button("Start Using IndianWhisper") { onNext() }
+                Button("Start Using SudoVoice") { onNext() }
                     .buttonStyle(.borderedProminent)
             }
         }

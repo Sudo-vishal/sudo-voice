@@ -1,4 +1,4 @@
-package com.indianwhisper.app.ui
+package com.sudovoice.app.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,10 +16,10 @@ class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences("indianwhisper", MODE_PRIVATE)
+        val prefs = getSharedPreferences("sudovoice", MODE_PRIVATE)
 
         setContent {
-            IndianWhisperTheme {
+            SudoVoiceTheme {
                 SettingsScreen(
                     groqKey = prefs.getString("groqApiKey", "") ?: "",
                     openRouterKey = prefs.getString("openRouterApiKey", "") ?: "",

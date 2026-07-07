@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">IndianWhisper</string>
-    <string name="tagline">by AiwithDhruv</string>
-    <string name="ime_label">IndianWhisper Voice</string>
+    <string name="app_name">SudoVoice</string>
+    <string name="tagline">by AiwithVishal</string>
+    <string name="ime_label">SudoVoice Voice</string>
 </resources>

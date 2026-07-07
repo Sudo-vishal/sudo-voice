@@ -1,4 +1,4 @@
-package com.indianwhisper.app.service
+package com.sudovoice.app.service
 
 import android.inputmethodservice.InputMethodService
 import android.util.Log
@@ -15,7 +15,7 @@ import kotlinx.coroutines.*
  * Reference: WhisperInput (alex-vt/WhisperInput) for InputMethodService pattern.
  *
  * Flow:
- * 1. User enables IndianWhisper in Settings → Languages & Input
+ * 1. User enables SudoVoice in Settings → Languages & Input
  * 2. Keyboard shows mic button
  * 3. Tap mic → record → release/pause → transcribe → text inserts at cursor
  */
@@ -47,7 +47,7 @@ class WhisperIME : InputMethodService() {
         scope.launch {
             try {
                 whisperService?.loadModel(
-                    com.indianwhisper.app.model.WhisperModelSize.TINY,
+                    com.sudovoice.app.model.WhisperModelSize.TINY,
                     language = "en"
                 )
                 Log.i(TAG, "IME model loaded")
@@ -142,7 +142,7 @@ class WhisperIME : InputMethodService() {
         if (rawText.trim().lowercase() in hallucinations) return
 
         // LLM cleanup (if keys available)
-        val prefs = getSharedPreferences("indianwhisper", MODE_PRIVATE)
+        val prefs = getSharedPreferences("sudovoice", MODE_PRIVATE)
         val groqKey = prefs.getString("groqApiKey", "") ?: ""
         val openRouterKey = prefs.getString("openRouterApiKey", "") ?: ""
         val cleanupEnabled = prefs.getBoolean("llmCleanupEnabled", true)

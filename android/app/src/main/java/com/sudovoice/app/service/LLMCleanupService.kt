@@ -1,4 +1,4 @@
-package com.indianwhisper.app.service
+package com.sudovoice.app.service
 
 import android.util.Log
 import okhttp3.*
@@ -111,7 +111,7 @@ class LLMCleanupService {
             .addHeader("Content-Type", "application/json")
             .apply {
                 if (provider == "OpenRouter") {
-                    addHeader("X-Title", "IndianWhisper")
+                    addHeader("X-Title", "SudoVoice")
                 }
             }
             .build()

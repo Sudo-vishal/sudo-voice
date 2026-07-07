@@ -86,7 +86,7 @@ private struct LLMProviderConfig {
                 url: "https://openrouter.ai/api/v1/chat/completions",
                 model: "google/gemini-3.1-flash-lite-preview",
                 authHeader: "Authorization", authPrefix: "Bearer ",
-                extraHeaders: ["X-Title": "IndianWhisper"], isAnthropic: false
+                extraHeaders: ["X-Title": "SudoVoice"], isAnthropic: false
             )
         case .claude:
             return LLMProviderConfig(

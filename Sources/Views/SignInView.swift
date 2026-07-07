@@ -58,7 +58,7 @@ struct SignInView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(Self.brandCyan)
 
-            Text("Sign in to IndianWhisper")
+            Text("Sign in to SudoVoice")
                 .font(.title3.bold())
 
             Text("We'll email you a 6-digit code. No password needed.")

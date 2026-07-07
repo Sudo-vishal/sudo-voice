@@ -1,12 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// Persistent log location — ~/Library/Logs/IndianWhisper/debug.log
+/// Persistent log location — ~/Library/Logs/SudoVoice/debug.log
 /// (was /tmp, which macOS wipes on restart — support debugging kept losing history)
 let logFilePath: String = {
     let fm = FileManager.default
     let dir = fm.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/IndianWhisper", isDirectory: true)
+        .appendingPathComponent("Library/Logs/SudoVoice", isDirectory: true)
     try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     return dir.appendingPathComponent("debug.log").path
 }()
@@ -26,7 +26,7 @@ func logToFile(_ msg: String) {
 let sharedAppState = AppState()
 
 @main
-struct IndianWhisperApp: App {
+struct SudoVoiceApp: App {
 
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -73,7 +73,7 @@ struct IndianWhisperApp: App {
         }
 
         // Onboarding window
-        Window("Welcome to IndianWhisper", id: "onboarding") {
+        Window("Welcome to SudoVoice", id: "onboarding") {
             OnboardingView()
                 .environment(sharedAppState)
         }
@@ -87,14 +87,14 @@ struct IndianWhisperApp: App {
 private func showOnboarding() {
     NSApplication.shared.setActivationPolicy(.regular)
     for window in NSApplication.shared.windows {
-        if window.title.contains("IndianWhisper") || window.title.contains("Welcome") {
+        if window.title.contains("SudoVoice") || window.title.contains("Welcome") {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             return
         }
     }
     // Fallback: open via window group ID
-    if let url = URL(string: "indianwhisper://onboarding") {
+    if let url = URL(string: "sudovoice://onboarding") {
         NSWorkspace.shared.open(url)
     }
 }

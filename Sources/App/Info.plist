@@ -5,11 +5,11 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>IndianWhisper needs microphone access for live speech-to-text transcription. All processing happens locally on your Mac.</string>
+    <string>SudoVoice needs microphone access for live speech-to-text transcription. All processing happens locally on your Mac.</string>
     <key>CFBundleName</key>
-    <string>IndianWhisper</string>
+    <string>SudoVoice</string>
     <key>CFBundleIdentifier</key>
-    <string>com.indianwhisper.app</string>
+    <string>com.sudovoice.app</string>
     <key>SupabaseURL</key>
     <string>https://drcadhtbrbyefkjqbjjv.supabase.co</string>
     <key>SupabaseAnonKey</key>

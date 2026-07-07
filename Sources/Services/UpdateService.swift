@@ -1,14 +1,14 @@
 import Foundation
 import AppKit
 
-/// Checks indianwhisper.com for new app versions and notifies the user.
+/// Checks sudovoice.com for new app versions and notifies the user.
 /// No auto-install (no Apple Developer cert). Instead: notification → browser → new DMG.
 final class UpdateService {
 
     static let shared = UpdateService()
 
-    private let apiURL = "https://indianwhisper.com/api/update/check"
-    private let fallbackURL = "https://indianwhisper.com/releases/latest.json"
+    private let apiURL = "https://sudovoice.com/api/update/check"
+    private let fallbackURL = "https://sudovoice.com/releases/latest.json"
     private let checkInterval: TimeInterval = 6 * 3600 // 6 hours
 
     // MARK: - State
@@ -65,7 +65,7 @@ final class UpdateService {
         guard updateAvailable else { return }
 
         let alert = NSAlert()
-        alert.messageText = "IndianWhisper v\(latestVersion) Available"
+        alert.messageText = "SudoVoice v\(latestVersion) Available"
         alert.informativeText = "\(releaseNotes)\n\nYou're currently on v\(currentVersion)."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Download Update")
@@ -95,7 +95,7 @@ final class UpdateService {
     func showUpToDateMessage() {
         let alert = NSAlert()
         alert.messageText = "You're Up to Date"
-        alert.informativeText = "IndianWhisper v\(currentVersion) is the latest version."
+        alert.informativeText = "SudoVoice v\(currentVersion) is the latest version."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         NSApplication.shared.activate(ignoringOtherApps: true)

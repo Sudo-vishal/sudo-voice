@@ -208,10 +208,10 @@ final class GeminiTranscriptionService {
             ("chat GPT", "ChatGPT"),
             ("chat gpt", "ChatGPT"),
             ("whisper kit", "WhisperKit"),
-            ("indian whisper", "IndianWhisper"),
+            ("sudo voice", "SudoVoice"),
             ("screen sage", "ScreenSage"),
             ("quota hit", "QuotaHit"),
-            ("ai with dhruv", "AiwithDhruv"),
+            ("ai with vishal", "AiwithVishal"),
             ("deep seek", "DeepSeek"),
             ("next js", "Next.js"),
             ("swift ui", "SwiftUI"),
@@ -264,11 +264,11 @@ final class GeminiTranscriptionService {
         // Default tech vocabulary (speaker works in AI/tech)
         let defaultVocab = """
         OpenAI, Perplexity, Claude, Anthropic, Gemini, Groq, OpenRouter, DeepSeek, Moonshot, \
-        WhisperKit, IndianWhisper, ScreenSage, QuotaHit, Onsite, Vercel, Supabase, \
+        WhisperKit, SudoVoice, ScreenSage, QuotaHit, Onsite, Vercel, Supabase, \
         API, SDK, WebSocket, LLM, RAG, MCP, FastAPI, Next.js, SwiftUI, CoreML, \
         GPT, ChatGPT, Cursor, GitHub, LinkedIn, YouTube, Instagram, \
         n8n, Upwork, Fiverr, SaaS, AI agent, prompt, token, fine-tune, \
-        Dhruv, AiwithDhruv, Euron, Bartisans, Malavika
+        Vishal, AiwithVishal, SudoVoice
         """
 
         let allVocab = vocabList.isEmpty ? defaultVocab : "\(vocabList), \(defaultVocab)"

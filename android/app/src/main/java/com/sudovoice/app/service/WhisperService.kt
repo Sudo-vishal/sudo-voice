@@ -1,8 +1,8 @@
-package com.indianwhisper.app.service
+package com.sudovoice.app.service
 
 import android.content.Context
 import android.util.Log
-import com.indianwhisper.app.model.WhisperModelSize
+import com.sudovoice.app.model.WhisperModelSize
 import com.k2fsa.sherpa.onnx.*
 import java.io.File
 

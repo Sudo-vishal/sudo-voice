@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "IndianWhisper",
+    name: "SudoVoice",
     platforms: [
         .macOS(.v14)
     ],
     products: [
         .executable(
-            name: "IndianWhisper",
-            targets: ["IndianWhisper"]
+            name: "SudoVoice",
+            targets: ["SudoVoice"]
         )
     ],
     dependencies: [
@@ -18,7 +18,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "IndianWhisper",
+            name: "SudoVoice",
             dependencies: [
                 "WhisperKit",
                 .product(name: "Supabase", package: "supabase-swift"),

@@ -1,20 +1,20 @@
 <div align="center">
 
-# IndianWhisper
+# SudoVoice
 
 ### Offline Voice-to-Text with AI Cleanup
 
-![IndianWhisper Overview](assets/indianwhisper-overview.png)
+![SudoVoice Overview](assets/sudovoice-overview.png)
 
 **Speak → AI cleans → Types wherever your cursor is. No cloud. No subscription needed.**
 
 Mac · iOS · Android · Windows
 
-[![GitHub](https://img.shields.io/github/stars/aiagentwithdhruv/IndianWhisper?style=social)](https://github.com/aiagentwithdhruv/IndianWhisper)
+[![GitHub](https://img.shields.io/github/stars/aiwithvishal/SudoVoice?style=social)](https://github.com/aiwithvishal/SudoVoice)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Android-lightgrey)]()
 
-*by [AiwithDhruv](https://github.com/aiagentwithdhruv)*
+*by [AiwithVishal](https://github.com/aiwithvishal)*
 
 ---
 
@@ -24,9 +24,9 @@ Mac · iOS · Android · Windows
 
 ---
 
-## What is IndianWhisper?
+## What is SudoVoice?
 
-IndianWhisper is an **offline voice typing app** that runs AI speech recognition **on your device** — your voice never leaves your machine. It transcribes speech, cleans it with AI, and types it directly wherever your cursor is.
+SudoVoice is an **offline voice typing app** that runs AI speech recognition **on your device** — your voice never leaves your machine. It transcribes speech, cleans it with AI, and types it directly wherever your cursor is.
 
 Think of it as **Siri dictation, but offline, private, and actually good with Indian accents.**
 
@@ -44,7 +44,7 @@ graph LR
 
 ### Before vs After
 
-| You say | Raw Whisper output | IndianWhisper output |
+| You say | Raw Whisper output | SudoVoice output |
 |---------|-------------------|---------------------|
 | *"um okay so basically I think we should uh deploy this to production right"* | `um okay so basically I think we should uh deploy this to production right` | `I think we should deploy this to production, right?` |
 | *"like you know the the server is is down again"* | `like you know the the server is is down again` | `The server is down again.` |
@@ -52,11 +52,11 @@ graph LR
 
 ---
 
-## Why IndianWhisper?
+## Why SudoVoice?
 
 ```mermaid
 mindmap
-  root((IndianWhisper))
+  root((SudoVoice))
     🔒 Privacy First
       100% offline transcription
       Voice never leaves your device
@@ -234,7 +234,7 @@ graph TB
 graph TD
     subgraph Sources["📁 Sources/"]
         subgraph App["App/"]
-            ENTRY["IndianWhisperApp.swift<br/><i>Entry point, MenuBar, Onboarding window</i>"]
+            ENTRY["SudoVoiceApp.swift<br/><i>Entry point, MenuBar, Onboarding window</i>"]
             PLIST["Info.plist<br/><i>Bundle ID, Permissions, Sparkle URL</i>"]
         end
         subgraph Models["Models/"]
@@ -267,7 +267,7 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph Android["📁 android/app/src/main/java/com/indianwhisper/app/"]
+    subgraph Android["📁 android/app/src/main/java/com/sudovoice/app/"]
         subgraph AUI["ui/"]
             AMAIN["MainActivity.kt<br/><i>Record button, Compose UI,<br/>transcription display, usage bar</i>"]
             ASETT["SettingsActivity.kt<br/><i>API keys, Hindi mode,<br/>license key, model picker</i>"]
@@ -295,7 +295,7 @@ graph TD
 
 ```mermaid
 timeline
-    title IndianWhisper — Platform Rollout
+    title SudoVoice — Platform Rollout
     section Phase 1 — Now
         macOS : ✅ Complete
               : WhisperKit on CoreML
@@ -395,7 +395,7 @@ graph LR
 
 ## Open Source — Self-Host Free Forever
 
-IndianWhisper follows the **n8n model**: code is 100% open source, revenue comes from convenience.
+SudoVoice follows the **n8n model**: code is 100% open source, revenue comes from convenience.
 
 ```mermaid
 graph TB
@@ -489,10 +489,10 @@ quadrantChart
     "Superwhisper ($8.49/mo)": [0.7, 0.65]
     "MacWhisper ($59)": [0.5, 0.55]
     "Buzz (free)": [0.3, 0.1]
-    "IndianWhisper ($4.99/mo)": [0.8, 0.3]
+    "SudoVoice ($4.99/mo)": [0.8, 0.3]
 ```
 
-| | IndianWhisper | Wispr Flow | Superwhisper | MacWhisper | Buzz |
+| | SudoVoice | Wispr Flow | Superwhisper | MacWhisper | Buzz |
 |---|---|---|---|---|---|
 | **Price** | **$4.99/mo** | $15/mo | $8.49/mo | $59 once | Free |
 | **Offline** | ✅ | ❌ Cloud | ✅ | ✅ | ✅ |
@@ -513,16 +513,16 @@ quadrantChart
 
 ```bash
 # Clone
-git clone https://github.com/aiagentwithdhruv/IndianWhisper.git
-cd IndianWhisper
+git clone https://github.com/aiwithvishal/SudoVoice.git
+cd SudoVoice
 
 # Build + Deploy
 swift build -c release
 ./deploy.sh
 
 # (Optional) Set up LLM cleanup
-mkdir -p ~/.config/indianwhisper
-cat > ~/.config/indianwhisper/.env << 'EOF'
+mkdir -p ~/.config/sudovoice
+cat > ~/.config/sudovoice/.env << 'EOF'
 GROQ_API_KEY=your_groq_key_here
 OPENROUTER_API_KEY=your_openrouter_key_here
 EOF
@@ -537,15 +537,15 @@ First launch:
 ### Option B: Self-Host on Android
 
 ```bash
-git clone https://github.com/aiagentwithdhruv/IndianWhisper.git
-cd IndianWhisper/android
+git clone https://github.com/aiwithvishal/SudoVoice.git
+cd SudoVoice/android
 # Open in Android Studio → Build → Run
-# Enable "IndianWhisper Voice" in Settings → Languages & Input
+# Enable "SudoVoice Voice" in Settings → Languages & Input
 ```
 
 ### Option C: Download Pro
 
-1. Visit [indianwhisper.com](https://indianwhisper.com)
+1. Visit [sudovoice.com](https://sudovoice.com)
 2. Download for your platform
 3. Enter license key → Done
 
@@ -553,7 +553,7 @@ cd IndianWhisper/android
 
 ```bash
 ./deploy.sh dmg
-# Creates IndianWhisper-v1.0.0.dmg in .build/dmg/
+# Creates SudoVoice-v1.0.0.dmg in .build/dmg/
 ```
 
 ---
@@ -614,7 +614,7 @@ pie title Why India is the Play
 
 ```mermaid
 gantt
-    title IndianWhisper — 2026 Roadmap
+    title SudoVoice — 2026 Roadmap
     dateFormat YYYY-MM
     axisFormat %b %Y
 
@@ -699,11 +699,11 @@ flowchart LR
 
 <div align="center">
 
-### Built by [AiwithDhruv](https://github.com/aiagentwithdhruv)
+### Built by [AiwithVishal](https://github.com/aiwithvishal)
 
-**Offline. Private. AI-powered. Indian.**
+**Offline. Private. AI-powered.**
 
-[Website](https://indianwhisper.com) · [GitHub](https://github.com/aiagentwithdhruv/IndianWhisper) · [Twitter](https://twitter.com/aiwithdhruv)
+[Website](https://sudovoice.com) · [GitHub](https://github.com/aiwithvishal/SudoVoice) · [Twitter](https://twitter.com/aiwithvishal)
 
 ---
 

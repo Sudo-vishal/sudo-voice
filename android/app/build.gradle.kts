@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.indianwhisper.app"
+    namespace = "com.sudovoice.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.indianwhisper.app"
+        applicationId = "com.sudovoice.app"
         minSdk = 26          // Android 8.0 — covers 95%+ devices
         targetSdk = 34
         versionCode = 1

@@ -1,7 +1,7 @@
 import Foundation
 import Supabase
 
-/// Cloud sync for IndianWhisper — auth, telemetry, transcript save.
+/// Cloud sync for SudoVoice — auth, telemetry, transcript save.
 /// Stub in D-004. Real methods land in D-005+.
 final class SupabaseService {
 

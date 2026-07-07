@@ -167,7 +167,7 @@ private struct GeneralTab: View {
                                 .frame(width: 110, alignment: .trailing)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            TextField("AIwithDhruv", text: $state.listeningLabel)
+                            TextField("AIwithVishal", text: $state.listeningLabel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -279,7 +279,7 @@ private struct LLMTab: View {
                         SecureAPIKeyField(label: "Moonshot", key: $state.moonshotApiKey)
                         SecureAPIKeyField(label: "DeepSeek", key: $state.deepSeekApiKey)
 
-                        Text("Selected provider tried first, others as fallback. Also reads ~/.config/indianwhisper/.env")
+                        Text("Selected provider tried first, others as fallback. Also reads ~/.config/sudovoice/.env")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.top, 4)
@@ -507,7 +507,7 @@ private struct AboutTab: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
-            Text("IndianWhisper")
+            Text("SudoVoice")
                 .font(.title.bold())
 
             Text("Community Edition")
@@ -555,9 +555,9 @@ private struct AboutTab: View {
             Divider().padding(.horizontal, 60)
 
             VStack(spacing: 4) {
-                Text("Built by AiwithDhruv")
+                Text("Built by AiwithVishal")
                     .font(.caption.bold())
-                Link("youtube.com/@AiwithDhruv", destination: URL(string: "https://youtube.com/@AiwithDhruv")!)
+                Link("youtube.com/@AiwithVishal", destination: URL(string: "https://youtube.com/@AiwithVishal")!)
                     .font(.caption)
             }
 
@@ -600,8 +600,8 @@ private struct LicenseTab: View {
     /// Same file-existence check as `selectedModel` getter (AppState.swift:82-83) and
     /// `canUseLLMCleanup` getter (AppState.swift:251-252).
     private var isDevModeBypass: Bool {
-        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/indianwhisper/.env")
-            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/whisper-aiwithdhruv/.env")
+        FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
+            || FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/sudovoice/.env")
     }
 
     /// Show Deactivate only when the user is actually Pro via a real license key
@@ -698,7 +698,7 @@ private struct LicenseTab: View {
                         Text("Unlock all 5 Whisper models, all 7 LLM providers, Gemini Live streaming, and unlimited transcription.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Link("indianwhisper.com/pricing", destination: URL(string: "https://indianwhisper.com/pricing")!)
+                        Link("sudovoice.com/pricing", destination: URL(string: "https://sudovoice.com/pricing")!)
                             .font(.caption)
                             .foregroundStyle(Self.brandCyan)
                     }
