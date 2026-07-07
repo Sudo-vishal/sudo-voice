@@ -228,6 +228,15 @@ graph TB
     style Droid fill:#1a1a2e,stroke:#00e676,color:#fff
 ```
 
+### Repository Layout
+
+| Path | What it is |
+|------|-----------|
+| `Sources/` | macOS app — Swift, WhisperKit, menu-bar UI |
+| `android/` | Android app — Kotlin, voice IME |
+| `website/` | sudovoice.com — Next.js marketing site + update-check API |
+| `assets/` | App icon and brand assets |
+
 ### macOS — Codebase Structure
 
 ```mermaid

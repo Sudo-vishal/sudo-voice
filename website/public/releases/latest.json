@@ -1,0 +1,8 @@
+{
+  "version": "0.0.0",
+  "minimumOS": "14.0",
+  "releaseDate": "2026-07-07",
+  "downloadURL": "https://sudovoice.com/releases/SudoVoice-v0.0.0.dmg",
+  "releaseNotes": "Placeholder manifest — no SudoVoice release has been published yet. deploy.sh overwrites this file on the first real release.",
+  "sha256": ""
+}
