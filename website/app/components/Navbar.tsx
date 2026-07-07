@@ -24,7 +24,7 @@ export default function Navbar() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
         scrolled
-          ? "bg-[#050A14]/90 backdrop-blur-md border-[#1C2940]"
+          ? "bg-[#04070F]/90 backdrop-blur-md border-[#1C2940]"
           : "bg-transparent border-transparent"
       }`}
     >

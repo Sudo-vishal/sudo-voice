@@ -1,4 +1,7 @@
-/* The pipeline, as a terminal would show it. */
+import Reveal from "./Reveal";
+import Spotlight from "./Spotlight";
+
+/* The pipeline with a light pulse traveling through it. */
 export default function HowItWorks() {
   const stages = [
     { name: "mic", detail: "16kHz capture + voice activity detection", color: "#FFBD2E" },
@@ -8,51 +11,64 @@ export default function HowItWorks() {
   ];
 
   return (
-    <section id="how-it-works" className="py-24 px-6 relative">
+    <section id="how-it-works" className="py-28 px-6 relative">
       <div className="max-w-6xl mx-auto relative z-10">
-        <div className="mb-14">
-          <div className="kicker mb-4">$ man sudovoice</div>
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
-            One hotkey. <span className="text-[#5C6E8A]">One pipeline.</span>
-          </h2>
-          <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl">
-            No setup wizards, no cloud accounts, no config files.
-          </p>
-        </div>
-
-        {/* the pipe */}
-        <div className="term">
-          <div className="term-bar">
-            <span className="font-mono text-xs text-[#5C6E8A]">pipeline</span>
+        <Reveal>
+          <div className="mb-16">
+            <div className="kicker mb-4">$ man sudovoice</div>
+            <h2 className="text-4xl md:text-[3.4rem] font-bold tracking-[-0.02em] leading-tight">
+              One hotkey.
+              <br />
+              <span className="text-[#4A5C7C]">One pipeline.</span>
+            </h2>
           </div>
-          <div className="p-6 md:p-8">
-            <div className="font-mono text-sm md:text-base flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="text-[#00E676]">$</span>
-              {stages.map((s, i) => (
-                <span key={s.name} className="flex items-center gap-3">
-                  <span
-                    className="px-3 py-1.5 rounded border"
-                    style={{ color: s.color, borderColor: `${s.color}44`, background: `${s.color}0d` }}
-                  >
-                    {s.name}
-                  </span>
-                  {i < stages.length - 1 && <span className="text-[#5C6E8A]">|</span>}
+        </Reveal>
+
+        <Reveal delay={100}>
+          <div className="border-glow">
+            <div className="term !border-0">
+              <div className="term-bar">
+                <span className="font-mono text-xs text-[#5C6E8A]">pipeline — live</span>
+                <span className="ml-auto font-mono text-xs text-[#00E676] flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-subtle-pulse" />
+                  streaming
                 </span>
-              ))}
-            </div>
-            <div className="mt-6 grid md:grid-cols-4 gap-4">
-              {stages.map((s) => (
-                <div key={s.name} className="font-mono text-xs leading-5">
-                  <span className="text-[#5C6E8A]"># {s.name}:</span>
-                  <div className="text-[#8FA3BF] mt-1">{s.detail}</div>
+              </div>
+              <div className="p-7 md:p-9">
+                <div className="font-mono text-sm md:text-base flex flex-wrap items-center gap-x-3 gap-y-3">
+                  <span className="text-[#00E676]">$</span>
+                  {stages.map((s, i) => (
+                    <span key={s.name} className="flex items-center gap-3">
+                      <span
+                        className="px-3.5 py-2 rounded-lg border transition-all"
+                        style={{ color: s.color, borderColor: `${s.color}55`, background: `${s.color}0f`, boxShadow: `0 0 18px -6px ${s.color}66` }}
+                      >
+                        {s.name}
+                      </span>
+                      {i < stages.length - 1 && <span className="text-[#3D4E6B]">|</span>}
+                    </span>
+                  ))}
                 </div>
-              ))}
+
+                {/* traveling pulse */}
+                <div className="pipe-track mt-7 h-px bg-gradient-to-r from-[#FFBD2E]/30 via-[#4FC3F7]/30 to-[#00E676]/40">
+                  <div className="pipe-dot" />
+                </div>
+
+                <div className="mt-7 grid md:grid-cols-4 gap-5">
+                  {stages.map((s) => (
+                    <div key={s.name} className="font-mono text-xs leading-5">
+                      <span className="text-[#5C6E8A]"># {s.name}:</span>
+                      <div className="text-[#8FA3BF] mt-1">{s.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
 
-        {/* three steps, numbered like a shell history */}
-        <div className="mt-10 grid md:grid-cols-3 gap-4">
+        <div className="mt-8 grid md:grid-cols-3 gap-4">
           {[
             {
               n: "1",
@@ -60,7 +76,7 @@ export default function HowItWorks() {
               body: (
                 <>
                   Hold{" "}
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-[#1C2940] font-mono text-xs text-[#8FA3BF]">
+                  <kbd className="px-2 py-0.5 rounded-md bg-white/5 border border-[#27395C] font-mono text-xs text-[#E6EDF7] shadow-[0_2px_0_#1C2940]">
                     ⌥ Option
                   </kbd>{" "}
                   from any app. The floating indicator lights up — you&apos;re live.
@@ -82,14 +98,16 @@ export default function HowItWorks() {
                 </>
               ),
             },
-          ].map((s) => (
-            <div key={s.n} className="panel panel-hover p-6">
-              <div className="font-mono text-sm text-[#5C6E8A] mb-3">
-                <span className="text-[#00E676]">[{s.n}]</span>
-              </div>
-              <h3 className="text-base font-semibold mb-2">{s.title}</h3>
-              <p className="text-[#8FA3BF] text-sm leading-relaxed">{s.body}</p>
-            </div>
+          ].map((s, i) => (
+            <Reveal key={s.n} delay={i * 100}>
+              <Spotlight className="panel panel-hover p-7 h-full">
+                <div className="font-mono text-sm mb-3">
+                  <span className="text-[#00E676]">[{s.n}]</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">{s.title}</h3>
+                <p className="text-[#8FA3BF] text-sm leading-relaxed">{s.body}</p>
+              </Spotlight>
+            </Reveal>
           ))}
         </div>
       </div>

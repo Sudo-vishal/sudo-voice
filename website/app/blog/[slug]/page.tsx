@@ -31,9 +31,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound();
 
   return (
-    <div className="min-h-screen bg-[#050A14]">
+    <div className="min-h-screen bg-[#04070F]">
       {/* Nav */}
-      <nav className="border-b border-[#1C2940] bg-[#050A14]/90 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-[#1C2940] bg-[#04070F]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/blog" className="flex items-center gap-2 font-mono text-[13px] text-[#8FA3BF] hover:text-[#00E676] transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

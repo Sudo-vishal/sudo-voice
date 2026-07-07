@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 
 export default function BlogPage() {
   return (
-    <div className="min-h-screen bg-[#050A14]">
+    <div className="min-h-screen bg-[#04070F]">
       {/* Nav */}
-      <nav className="border-b border-[#1C2940] bg-[#050A14]/90 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-[#1C2940] bg-[#04070F]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <LogoMark size={28} />

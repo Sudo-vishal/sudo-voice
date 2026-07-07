@@ -81,6 +81,11 @@ export default function Footer() {
             </div>
           </div>
 
+          {/* Giant watermark */}
+          <div className="overflow-hidden -mb-4 mt-4 select-none" aria-hidden="true">
+            <div className="watermark text-center">sudovoice</div>
+          </div>
+
           {/* Bottom bar */}
           <div className="h-px w-full mb-6 bg-[#1C2940]" />
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 font-mono text-xs text-[#5C6E8A]">
