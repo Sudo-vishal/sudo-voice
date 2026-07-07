@@ -117,7 +117,8 @@ export default function LiveDemo() {
           </p>
         </div>
 
-        <div className="glass-card glow-card-blue rounded-2xl overflow-hidden">
+        <div className="border-glow">
+        <div className="term !border-0 overflow-hidden">
           {/* Editor header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-white/[0.02]">
             <div className="flex items-center gap-2">
@@ -212,6 +213,7 @@ export default function LiveDemo() {
               )}
             </button>
           </div>
+        </div>
         </div>
 
         <p className="mt-4 text-xs text-[#5C6E8A] text-center">

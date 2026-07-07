@@ -83,7 +83,11 @@ export default function ModelTable() {
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block glass-card glow-card-purple animate-float-slow rounded-2xl overflow-hidden">
+        <div className="hidden md:block term">
+          <div className="term-bar">
+            <span className="font-mono text-xs text-[#5C6E8A]">models.tsv</span>
+            <span className="ml-auto font-mono text-xs text-[#5C6E8A]">5 rows</span>
+          </div>
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
@@ -98,8 +102,8 @@ export default function ModelTable() {
               {models.map((model) => (
                 <tr
                   key={model.name}
-                  className={`border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
-                    model.recommended ? "bg-emerald-500/[0.03]" : ""
+                  className={`border-b border-[#101A2E] hover:bg-[#00E676]/[0.03] transition-colors ${
+                    model.recommended ? "bg-[#00E676]/[0.04] shadow-[inset_2px_0_0_#00E676]" : ""
                   }`}
                 >
                   <td className="px-6 py-4">

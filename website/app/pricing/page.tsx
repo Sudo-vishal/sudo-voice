@@ -18,7 +18,7 @@ const Check = () => (
     height="16"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="#4FC3F7"
+    stroke="#00E676"
     strokeWidth="2.5"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -144,14 +144,15 @@ export default function PricingPage() {
         <section className="py-20 px-6 relative">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold">Why Pro?</h2>
+              <div className="kicker mb-3">$ diff free pro</div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Why Pro?</h2>
               <p className="mt-3 text-[#8FA3BF] text-lg max-w-xl mx-auto">
                 What you get past the free tier.
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-                <div className="text-sm font-semibold uppercase tracking-wider text-[#4FC3F7] mb-3">
+              <div className="panel panel-hover p-6">
+                <div className="font-mono text-[13px] text-[#00E676] mb-3">
                   Better accuracy
                 </div>
                 <p className="text-[#E2E8F0] text-sm leading-relaxed">
@@ -160,8 +161,8 @@ export default function PricingPage() {
                   and tricky audio. Free tier caps you at Tiny + Base.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-                <div className="text-sm font-semibold uppercase tracking-wider text-[#4FC3F7] mb-3">
+              <div className="panel panel-hover p-6">
+                <div className="font-mono text-[13px] text-[#00E676] mb-3">
                   Hindi / Hinglish first
                 </div>
                 <p className="text-[#E2E8F0] text-sm leading-relaxed">
@@ -170,8 +171,8 @@ export default function PricingPage() {
                   Hindi/Hinglish/English without a language picker.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-                <div className="text-sm font-semibold uppercase tracking-wider text-[#4FC3F7] mb-3">
+              <div className="panel panel-hover p-6">
+                <div className="font-mono text-[13px] text-[#00E676] mb-3">
                   Save 3+ hours/week
                 </div>
                 <p className="text-[#E2E8F0] text-sm leading-relaxed">
@@ -188,12 +189,13 @@ export default function PricingPage() {
         <section className="py-20 px-6 relative">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold">How we compare</h2>
+              <div className="kicker mb-3">$ diff sudovoice --all</div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">How we compare</h2>
               <p className="mt-3 text-[#8FA3BF] text-lg max-w-xl mx-auto">
                 Voice-typing tools side by side.
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-x-auto">
+            <div className="panel overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/5">
@@ -255,14 +257,15 @@ export default function PricingPage() {
         <section className="py-20 px-6 relative">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold">Questions</h2>
+              <div className="kicker mb-3">$ man faq</div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Questions</h2>
               <p className="mt-3 text-[#8FA3BF] text-lg">Eight common ones.</p>
             </div>
             <div className="space-y-3">
               {FAQS.map((item) => (
                 <details
                   key={item.q}
-                  className="group rounded-xl border border-white/10 bg-white/[0.02] open:border-[#4FC3F7]/30 open:bg-[#4FC3F7]/[0.03] transition-colors"
+                  className="group panel open:border-[#00E676]/40 open:bg-[#00E676]/[0.03] transition-colors"
                 >
                   <summary className="flex items-center justify-between cursor-pointer list-none px-5 py-4 text-sm md:text-base font-medium text-white">
                     <span>{item.q}</span>
@@ -275,7 +278,7 @@ export default function PricingPage() {
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="text-[#5C6E8A] group-open:rotate-180 group-open:text-[#4FC3F7] transition-transform shrink-0 ml-3"
+                      className="text-[#5C6E8A] group-open:rotate-180 group-open:text-[#00E676] transition-transform shrink-0 ml-3"
                       aria-hidden="true"
                     >
                       <path d="m6 9 6 6 6-6" />
@@ -292,28 +295,25 @@ export default function PricingPage() {
 
         {/* Final CTA strip */}
         <section className="py-20 px-6 relative">
-          <div className="max-w-3xl mx-auto rounded-2xl border border-[#4FC3F7]/30 bg-[#4FC3F7]/[0.04] shadow-[0_0_60px_rgba(79, 195, 247,0.1)] p-10 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Try free, upgrade when ready
-            </h2>
-            <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl mx-auto">
-              Start on the free tier. Pay only if it earns its keep.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a
-                href="/"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all"
-              >
-                Download Free
-              </a>
-              <a
-                href="/#download"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-[#4FC3F7] text-black font-semibold hover:bg-[#4FC3F7]/90 transition-all"
-              >
-                Download — Free in Early Access
-              </a>
+          <div className="max-w-3xl mx-auto border-glow">
+            <div className="bg-[#081020] p-10 text-center">
+              <div className="kicker mb-3">$ sudovoice --start</div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+                Try free, upgrade when ready
+              </h2>
+              <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl mx-auto">
+                Start on the free tier. Pay only if it earns its keep.
+              </p>
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="/#download" className="btn-primary px-7 py-3.5 text-sm">
+                  Download — Free in Early Access
+                </a>
+                <a href="/" className="btn-ghost px-6 py-3.5 text-sm font-semibold">
+                  Learn more
+                </a>
+              </div>
+              <div className="mt-4 font-mono text-[11px] text-[#5C6E8A]">30-day money-back</div>
             </div>
-            <div className="mt-4 text-xs text-[#5C6E8A]">30-day money-back</div>
           </div>
         </section>
       </main>

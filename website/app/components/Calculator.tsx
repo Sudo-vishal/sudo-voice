@@ -160,7 +160,8 @@ export default function Calculator() {
               </div>
 
               {/* Money — the wow factor */}
-              <div className="glass-card glow-card-green rounded-xl p-5 text-center relative overflow-hidden">
+              <div className="border-glow">
+              <div className="bg-[#081020] p-5 text-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
                 <div className="relative z-10">
                   <div className="text-xs text-[#5C6E8A] uppercase tracking-widest mb-1">Value of time saved</div>
@@ -172,6 +173,7 @@ export default function Calculator() {
                     That&apos;s ${Math.round(yearlyMoneySaved / 12).toLocaleString()}/month you could reclaim
                   </div>
                 </div>
+              </div>
               </div>
 
               <div className="text-center pt-1">
