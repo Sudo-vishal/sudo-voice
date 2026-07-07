@@ -87,10 +87,10 @@ export default function LiveDemo() {
       <section id="try-it" className="py-20 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Try It <span className="gradient-text">Live</span>
+            Try it live.
           </h2>
           <div className="glass-card rounded-2xl p-8">
-            <p className="text-[#9FB0C7]">
+            <p className="text-[#8FA3BF]">
               This browser doesn&apos;t support the live demo — but the apps don&apos;t need it.{" "}
               <a href="/#download" className="text-[#4FC3F7] hover:text-[#4FC3F7]/80">Download the Mac or Windows app</a>{" "}
               for full on-device transcription, or open this page in Chrome to try the demo.
@@ -105,15 +105,15 @@ export default function LiveDemo() {
     <section id="try-it" className="py-20 px-6 relative">
       <div className="max-w-3xl mx-auto relative z-10">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-green-500/20 bg-green-500/5 text-green-400 text-sm font-medium mb-5">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-subtle-pulse" />
-            Live in your browser — no install needed
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded border border-[#00E676]/25 bg-[#00E676]/5 font-mono text-[13px] text-[#00E676] mb-5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-subtle-pulse" />
+            live — runs in your browser, no install
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold">
-            Try It <span className="gradient-text">Right Now</span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
+            Try it right now.
           </h2>
-          <p className="mt-3 text-[#9FB0C7] text-lg max-w-lg mx-auto">
-            Click the mic and start speaking. See how fast voice beats typing.
+          <p className="mt-3 text-[#8FA3BF] text-lg max-w-lg mx-auto">
+            Hit the mic and speak. Watch how fast voice beats typing.
           </p>
         </div>
 
@@ -124,17 +124,17 @@ export default function LiveDemo() {
               <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
               <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
               <div className="w-3 h-3 rounded-full bg-[#28C840]" />
-              <span className="ml-3 text-xs text-[#6B7A93] font-mono">voice-demo.txt</span>
+              <span className="ml-3 text-xs text-[#5C6E8A] font-mono">voice-demo.txt</span>
             </div>
             <div className="flex items-center gap-3">
               {wordCount > 0 && (
-                <span className="text-xs text-[#6B7A93]">{wordCount} words</span>
+                <span className="text-xs text-[#5C6E8A]">{wordCount} words</span>
               )}
               {transcript && (
                 <>
                   <button
                     onClick={copyText}
-                    className="text-xs text-[#6B7A93] hover:text-white transition-colors flex items-center gap-1"
+                    className="text-xs text-[#5C6E8A] hover:text-white transition-colors flex items-center gap-1"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
@@ -144,7 +144,7 @@ export default function LiveDemo() {
                   </button>
                   <button
                     onClick={clearText}
-                    className="text-xs text-[#6B7A93] hover:text-red-400 transition-colors"
+                    className="text-xs text-[#5C6E8A] hover:text-red-400 transition-colors"
                   >
                     Clear
                   </button>
@@ -157,7 +157,7 @@ export default function LiveDemo() {
           <div className="p-5 min-h-[180px] relative">
             {!transcript && !interimText && !isListening && (
               <div className="absolute inset-5 flex items-center justify-center">
-                <p className="text-[#6B7A93]/50 text-sm text-center">
+                <p className="text-[#5C6E8A]/50 text-sm text-center">
                   Click the microphone button below and start speaking...<br />
                   Your words will appear here in real-time.
                 </p>
@@ -186,7 +186,7 @@ export default function LiveDemo() {
               className={`relative flex items-center gap-3 px-8 py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 ${
                 isListening
                   ? "bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25"
-                  : "bg-gradient-to-r from-emerald-600 to-cyan-600 text-white hover:from-emerald-500 hover:to-cyan-500 glow-blue"
+                  : "btn-primary"
               }`}
             >
               {isListening ? (
@@ -214,7 +214,7 @@ export default function LiveDemo() {
           </div>
         </div>
 
-        <p className="mt-4 text-xs text-[#6B7A93] text-center">
+        <p className="mt-4 text-xs text-[#5C6E8A] text-center">
           Uses your browser&apos;s built-in speech recognition (Chrome/Edge). No data sent anywhere.
         </p>
       </div>

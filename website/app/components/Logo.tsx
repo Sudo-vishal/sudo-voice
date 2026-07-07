@@ -1,7 +1,7 @@
 export default function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="#0B1526" stroke="#1D2B45" />
+      <rect width="32" height="32" rx="7" fill="#0B1526" stroke="#1C2940" />
       <path
         d="M7.5 10.5 L13.5 16 L7.5 21.5"
         stroke="#00E676"

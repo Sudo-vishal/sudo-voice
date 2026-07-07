@@ -31,18 +31,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound();
 
   return (
-    <div className="min-h-screen bg-[#070D16]">
+    <div className="min-h-screen bg-[#050A14]">
       {/* Nav */}
-      <nav className="border-b border-white/5 bg-[#070D16]/80 backdrop-blur-xl sticky top-0 z-50">
+      <nav className="border-b border-[#1C2940] bg-[#050A14]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/blog" className="flex items-center gap-2 text-[#9FB0C7] hover:text-white transition-colors">
+          <Link href="/blog" className="flex items-center gap-2 font-mono text-[13px] text-[#8FA3BF] hover:text-[#00E676] transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            All articles
+            cd ..
           </Link>
-          <Link href="/#download" className="text-sm text-[#4FC3F7] hover:text-[#4FC3F7]/80 transition-colors">
-            Download SudoVoice
+          <Link href="/#download" className="font-mono text-[13px] text-[#00E676] hover:underline transition-colors">
+            download
           </Link>
         </div>
       </nav>
@@ -55,19 +55,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               {tag}
             </span>
           ))}
-          <span className="text-xs text-[#6B7A93]">{post.date} · {post.readTime} read</span>
+          <span className="text-xs text-[#5C6E8A]">{post.date} · {post.readTime} read</span>
         </div>
 
         {/* Title */}
         <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4">{post.title}</h1>
-        <p className="text-lg text-[#9FB0C7] mb-8 leading-relaxed">{post.description}</p>
+        <p className="text-lg text-[#8FA3BF] mb-8 leading-relaxed">{post.description}</p>
 
         {/* Author */}
         <div className="flex items-center gap-3 mb-10 pb-10 border-b border-white/5">
-          <div className="w-10 h-10 rounded-full bg-[#4FC3F7] flex items-center justify-center text-sm font-bold text-black">D</div>
+          <div className="w-10 h-10 rounded-lg bg-[#00E676] flex items-center justify-center text-sm font-bold text-black font-mono">V</div>
           <div>
             <div className="text-sm font-medium">Vishal</div>
-            <div className="text-xs text-[#6B7A93]">AIwithVishal · AI Builder</div>
+            <div className="text-xs font-mono text-[#5C6E8A]">AIwithVishal · AI builder</div>
           </div>
         </div>
 
@@ -77,14 +77,14 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             prose-headings:font-bold prose-headings:text-white
             prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
             prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
-            prose-p:text-[#9FB0C7] prose-p:leading-relaxed
+            prose-p:text-[#8FA3BF] prose-p:leading-relaxed
             prose-a:text-[#4FC3F7] prose-a:no-underline hover:prose-a:text-[#4FC3F7]/80
             prose-strong:text-white
-            prose-li:text-[#9FB0C7]
+            prose-li:text-[#8FA3BF]
             prose-code:text-[#E2E8F0] prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
             prose-table:text-sm
-            prose-th:text-left prose-th:text-[#6B7A93] prose-th:font-medium prose-th:border-white/5
-            prose-td:text-[#9FB0C7] prose-td:border-white/5
+            prose-th:text-left prose-th:text-[#5C6E8A] prose-th:font-medium prose-th:border-white/5
+            prose-td:text-[#8FA3BF] prose-td:border-white/5
           "
           dangerouslySetInnerHTML={{ __html: markdownToHtml(post.content) }}
         />
@@ -92,7 +92,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* CTA */}
         <div className="mt-16 glass-card glow-card-cyan rounded-2xl p-8 text-center">
           <h3 className="text-xl font-bold mb-2">Ready to stop typing?</h3>
-          <p className="text-[#9FB0C7] text-sm mb-6">Free voice-to-text for Mac, Windows, and Chrome. No subscription.</p>
+          <p className="text-[#8FA3BF] text-sm mb-6">Free voice-to-text for Mac, Windows, and Chrome. No subscription.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/#download"

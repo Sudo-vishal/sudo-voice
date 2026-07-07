@@ -8,18 +8,18 @@ export const metadata: Metadata = {
 
 export default function Privacy() {
   return (
-    <main className="min-h-screen bg-[#070D16] text-white px-6 py-24">
+    <main className="min-h-screen bg-[#050A14] text-white px-6 py-24">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-[#6B7A93] mb-4">Last updated: May 10, 2026</p>
-        <p className="text-[#9FB0C7] leading-relaxed mb-12">
+        <p className="text-[#5C6E8A] mb-4">Last updated: May 10, 2026</p>
+        <p className="text-[#8FA3BF] leading-relaxed mb-12">
           Plain-language version. We don&apos;t sell your data. We don&apos;t track you across the web.
           Most users never sign in — for them, SudoVoice runs 100% on-device. If you do sign in to
           sync transcripts across devices, we store specific fields in our database and you can ask us
           to delete them at any time. Details below.
         </p>
 
-        <div className="space-y-10 text-[#9FB0C7] leading-relaxed">
+        <div className="space-y-10 text-[#8FA3BF] leading-relaxed">
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">1. What we collect</h2>
             <p className="mb-4">
@@ -198,7 +198,7 @@ export default function Privacy() {
           </section>
         </div>
 
-        <div className="mt-16 pt-8 border-t border-white/10 text-sm text-[#6B7A93]">
+        <div className="mt-16 pt-8 border-t border-white/10 text-sm text-[#5C6E8A]">
           <a href="/" className="text-[#4FC3F7] hover:text-[#4FC3F7]/80">&larr; Back to SudoVoice</a>
           <span className="mx-3 text-white/10">·</span>
           <a href="/terms" className="text-[#4FC3F7] hover:text-[#4FC3F7]/80">Terms of Service</a>

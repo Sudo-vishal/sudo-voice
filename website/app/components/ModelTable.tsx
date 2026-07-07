@@ -45,12 +45,13 @@ export default function ModelTable() {
   return (
     <section id="models" className="py-24 px-6 relative">
       <div className="max-w-5xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold">
-            Choose Your <span className="gradient-text">Model</span>
+        <div className="mb-14">
+          <div className="kicker mb-4">$ sudovoice --model</div>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
+            Pick your model. <span className="text-[#5C6E8A]">All free.</span>
           </h2>
-          <p className="mt-4 text-[#9FB0C7] text-lg max-w-xl mx-auto">
-            All models are free. Downloads once, works offline. Pick the one that fits your Mac.
+          <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl">
+            Downloads once, runs offline forever. Pick the size that fits your machine.
           </p>
         </div>
 
@@ -72,10 +73,10 @@ export default function ModelTable() {
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-[#6B7A93]">Size:</span> {model.size}</div>
-                <div><span className="text-[#6B7A93]">Speed:</span> {model.speed}</div>
-                <div><span className="text-[#6B7A93]">Accuracy:</span> {model.accuracy}</div>
-                <div className="col-span-2"><span className="text-[#6B7A93]">Best for:</span> {model.best}</div>
+                <div><span className="text-[#5C6E8A]">Size:</span> {model.size}</div>
+                <div><span className="text-[#5C6E8A]">Speed:</span> {model.speed}</div>
+                <div><span className="text-[#5C6E8A]">Accuracy:</span> {model.accuracy}</div>
+                <div className="col-span-2"><span className="text-[#5C6E8A]">Best for:</span> {model.best}</div>
               </div>
             </div>
           ))}
@@ -86,11 +87,11 @@ export default function ModelTable() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#6B7A93]">Model</th>
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#6B7A93]">Size</th>
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#6B7A93]">Speed</th>
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#6B7A93]">Accuracy</th>
-                <th className="text-left px-6 py-4 text-sm font-medium text-[#6B7A93]">Best For</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#5C6E8A]">Model</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#5C6E8A]">Size</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#5C6E8A]">Speed</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#5C6E8A]">Accuracy</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-[#5C6E8A]">Best For</th>
               </tr>
             </thead>
             <tbody>
@@ -111,10 +112,10 @@ export default function ModelTable() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-[#9FB0C7]">{model.size}</td>
-                  <td className="px-6 py-4 text-[#9FB0C7]">{model.speed}</td>
-                  <td className="px-6 py-4 text-[#9FB0C7]">{model.accuracy}</td>
-                  <td className="px-6 py-4 text-[#9FB0C7]">{model.best}</td>
+                  <td className="px-6 py-4 text-[#8FA3BF]">{model.size}</td>
+                  <td className="px-6 py-4 text-[#8FA3BF]">{model.speed}</td>
+                  <td className="px-6 py-4 text-[#8FA3BF]">{model.accuracy}</td>
+                  <td className="px-6 py-4 text-[#8FA3BF]">{model.best}</td>
                 </tr>
               ))}
             </tbody>

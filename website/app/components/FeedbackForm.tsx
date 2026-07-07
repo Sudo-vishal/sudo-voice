@@ -63,7 +63,7 @@ export default function FeedbackForm() {
 
     setSubmitting(true);
     try {
-      await fetch("https://formsubmit.co/ajax/aiwithvishal@gmail.com", {
+      await fetch("https://formsubmit.co/ajax/vishalprasad2442002@gmail.com", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -77,7 +77,7 @@ export default function FeedbackForm() {
       setName("");
       setMessage("");
     } catch {
-      window.location.href = `mailto:aiwithvishal@gmail.com?subject=${encodeURIComponent(`[SudoVoice ${type}]`)}&body=${encodeURIComponent(`Name: ${name || "Anonymous"}\nType: ${type}\n\n${message}`)}`;
+      window.location.href = `mailto:vishalprasad2442002@gmail.com?subject=${encodeURIComponent(`[SudoVoice ${type}]`)}&body=${encodeURIComponent(`Name: ${name || "Anonymous"}\nType: ${type}\n\n${message}`)}`;
     }
     setSubmitting(false);
   };
@@ -93,7 +93,7 @@ export default function FeedbackForm() {
               </svg>
             </div>
             <h3 className="text-2xl font-bold mb-2">Thank you!</h3>
-            <p className="text-[#9FB0C7]">Your feedback helps us make SudoVoice better.</p>
+            <p className="text-[#8FA3BF]">Your feedback helps us make SudoVoice better.</p>
             <button
               onClick={() => setSubmitted(false)}
               className="mt-6 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -110,11 +110,12 @@ export default function FeedbackForm() {
     <section id="feedback" className="py-20 px-6 relative">
       <div className="max-w-lg mx-auto relative z-10">
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold">
-            Share Your <span className="gradient-text">Feedback</span>
+          <div className="kicker mb-3">$ echo &quot;your thoughts&quot; | sudovoice</div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Talk back to us.
           </h2>
-          <p className="mt-3 text-[#9FB0C7] text-sm">
-            Bug, idea, or just a kind word — type it or speak it.
+          <p className="mt-3 text-[#8FA3BF] text-sm">
+            Bug, idea, or a kind word — type it, or fittingly, speak it.
           </p>
         </div>
 
@@ -133,7 +134,7 @@ export default function FeedbackForm() {
                       : t === "feature"
                       ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
                       : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                    : "bg-white/5 text-[#6B7A93] border border-white/5 hover:border-white/10"
+                    : "bg-white/5 text-[#5C6E8A] border border-white/5 hover:border-white/10"
                 }`}
               >
                 {t === "bug" ? "Bug" : t === "feature" ? "Feature Idea" : "Feedback"}
@@ -147,7 +148,7 @@ export default function FeedbackForm() {
             placeholder="Your name (optional)"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/8 text-white placeholder-[#6B7A93] text-sm focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/8 text-white placeholder-[#5C6E8A] text-sm focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all"
           />
 
           {/* Message with voice button */}
@@ -164,7 +165,7 @@ export default function FeedbackForm() {
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
               required
-              className="w-full px-4 py-3 pr-14 rounded-xl bg-white/5 border border-white/8 text-white placeholder-[#6B7A93] text-sm focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all resize-none"
+              className="w-full px-4 py-3 pr-14 rounded-xl bg-white/5 border border-white/8 text-white placeholder-[#5C6E8A] text-sm focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all resize-none"
             />
             {/* Voice mic button */}
             <button
@@ -173,7 +174,7 @@ export default function FeedbackForm() {
               className={`absolute bottom-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
                 isListening
                   ? "bg-red-500/20 border border-red-500/40 text-red-400"
-                  : "bg-white/5 border border-white/10 text-[#6B7A93] hover:text-cyan-400 hover:border-cyan-500/30"
+                  : "bg-white/5 border border-white/10 text-[#5C6E8A] hover:text-cyan-400 hover:border-cyan-500/30"
               }`}
               title={isListening ? "Stop recording" : "Speak your feedback"}
             >
@@ -205,7 +206,7 @@ export default function FeedbackForm() {
             {submitting ? "Sending..." : "Send Feedback"}
           </button>
 
-          <p className="text-xs text-[#6B7A93] text-center">
+          <p className="text-xs text-[#5C6E8A] text-center">
             Goes directly to the developer. No spam, no tracking.
           </p>
         </form>

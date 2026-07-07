@@ -73,7 +73,7 @@ export default async function WelcomePage({
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
               Welcome to <span className="gradient-text">Pro</span>
             </h1>
-            <p className="mt-5 text-lg text-[#9FB0C7] max-w-xl mx-auto leading-relaxed">
+            <p className="mt-5 text-lg text-[#8FA3BF] max-w-xl mx-auto leading-relaxed">
               Thanks for upgrading. Your license key is on its way.
             </p>
           </div>
@@ -99,7 +99,7 @@ export default async function WelcomePage({
                 the subject line <span className="text-white">&ldquo;Your SudoVoice license key&rdquo;</span>.
               </p>
             )}
-            <p className="mt-3 text-sm text-[#6B7A93]">
+            <p className="mt-3 text-sm text-[#5C6E8A]">
               Delivery usually takes under a minute.
             </p>
           </div>
@@ -148,10 +148,10 @@ export default async function WelcomePage({
         {/* Don't see the email */}
         <section className="px-6 py-8">
           <div className="max-w-2xl mx-auto rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <div className="text-sm font-semibold uppercase tracking-wider text-[#9FB0C7] mb-3">
+            <div className="text-sm font-semibold uppercase tracking-wider text-[#8FA3BF] mb-3">
               Don&apos;t see the email?
             </div>
-            <ul className="space-y-2 text-sm text-[#9FB0C7]">
+            <ul className="space-y-2 text-sm text-[#8FA3BF]">
               <li className="flex items-start gap-2">
                 <Check />
                 <span>Check the spam / junk / promotions folders</span>
@@ -192,7 +192,7 @@ export default async function WelcomePage({
                 ))}
               </ul>
             </div>
-            <p className="mt-4 text-xs text-[#6B7A93] text-center">
+            <p className="mt-4 text-xs text-[#5C6E8A] text-center">
               30-day money-back. Email support@sudovoice.com to refund anytime in the
               first 30 days, no questions asked.
             </p>

@@ -1,4 +1,3 @@
-import LightStreaks from "./components/LightStreaks";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import LiveDemo from "./components/LiveDemo";
@@ -12,86 +11,40 @@ import FeedbackForm from "./components/FeedbackForm";
 import Support from "./components/Support";
 import Footer from "./components/Footer";
 import SectionDivider from "./components/SectionDivider";
-import AmbientGlow from "./components/AmbientGlow";
 
 export default function Home() {
   return (
     <>
       <Navbar />
       <main className="relative z-10">
-        {/* Hero with light streaks */}
-        <div className="relative">
-          <LightStreaks />
-          <Hero />
-        </div>
+        <Hero />
 
-        {/* Live Demo — try voice in browser */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="center" color="blue" size={600} />
-          <AmbientGlow position="top-left" color="purple" size={350} />
-          <LiveDemo />
-        </div>
+        <SectionDivider index="01" label="try it in your browser" />
+        <LiveDemo />
 
-        {/* How It Works */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="top-right" color="blue" size={500} />
-          <AmbientGlow position="bottom-left" color="purple" size={400} />
-          <HowItWorks />
-        </div>
+        <SectionDivider index="02" label="how it works" />
+        <HowItWorks />
 
-        {/* Features */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="top-left" color="purple" size={450} />
-          <AmbientGlow position="bottom-right" color="blue" size={500} />
-          <Features />
-        </div>
+        <SectionDivider index="03" label="features" />
+        <Features />
 
-        {/* Time Savings Calculator */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="center" color="blue" size={600} />
-          <AmbientGlow position="top-right" color="purple" size={400} />
-          <Calculator />
-        </div>
+        <SectionDivider index="04" label="time saved" />
+        <Calculator />
 
-        {/* Models */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="center" color="purple" size={600} />
-          <ModelTable />
-        </div>
+        <SectionDivider index="05" label="models" />
+        <ModelTable />
 
-        {/* Comparison */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="top-right" color="pink" size={400} />
-          <AmbientGlow position="bottom-left" color="blue" size={450} />
-          <Comparison />
-        </div>
+        <SectionDivider index="06" label="vs. the others" />
+        <Comparison />
 
-        {/* Download */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="center" color="blue" size={700} />
-          <Download />
-        </div>
+        <SectionDivider index="07" label="download" />
+        <Download />
 
-        {/* Feedback Form */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="bottom-left" color="purple" size={400} />
-          <FeedbackForm />
-        </div>
+        <SectionDivider index="08" label="feedback" />
+        <FeedbackForm />
 
-        {/* Support & Feedback */}
-        <div className="relative overflow-hidden">
-          <SectionDivider />
-          <AmbientGlow position="top-right" color="blue" size={350} />
-          <Support />
-        </div>
+        <SectionDivider index="09" label="support" />
+        <Support />
       </main>
       <Footer />
     </>

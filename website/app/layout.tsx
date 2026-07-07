@@ -15,9 +15,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SudoVoice — Voice to Text, On-Device by Default",
+  title: "SudoVoice — Your Voice, with Root Access",
   description:
-    "Free voice-to-text for Mac, Windows, and Chrome. Hindi, Hinglish, English. On-device by default — your audio recordings never leave your machine. Sign in for cross-device transcript sync. Built for developers and creators.",
+    "Offline voice typing for Mac, Windows, and Chrome. Whisper runs on your machine, an LLM strips the filler, clean text lands at your cursor in any app. Free, open source, no subscription.",
   keywords: [
     "voice to text",
     "voice typing",
@@ -35,17 +35,17 @@ export const metadata: Metadata = {
     "sudovoice",
   ],
   openGraph: {
-    title: "SudoVoice — Stop Typing. Start Speaking.",
+    title: "SudoVoice — Your Voice, with Root Access",
     description:
-      "Voice-to-text for Mac, Windows, and Chrome. Hindi, Hinglish, English. Free forever. No subscription.",
+      "Offline voice typing that types at your cursor in any app. Whisper on-device + LLM cleanup. Free forever, open source, no subscription.",
     url: "https://sudovoice.com",
     siteName: "SudoVoice",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "SudoVoice — Voice to Text, On-Device by Default",
-    description: "Voice-to-text for Mac, Windows & Chrome. Hindi/Hinglish/English. Free.",
+    title: "SudoVoice — Your Voice, with Root Access",
+    description: "Offline voice typing that types at your cursor. On-device Whisper + LLM cleanup. Free.",
   },
 };
 
@@ -56,7 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark scroll-smooth">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-[#070D16] text-white`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-[#050A14] text-white`}>
         <Analytics />
         {children}
         {/* <VoiceAssistant /> */}

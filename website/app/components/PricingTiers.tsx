@@ -145,7 +145,7 @@ export default function PricingTiers() {
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-5xl font-bold">Pricing</h2>
-          <p className="mt-4 text-[#9FB0C7] text-lg max-w-xl mx-auto">
+          <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl mx-auto">
             Free for life. Paid when you need more.
           </p>
         </div>
@@ -159,7 +159,7 @@ export default function PricingTiers() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 emphasis === "monthly"
                   ? "bg-[#4FC3F7] text-black"
-                  : "text-[#9FB0C7] hover:text-white"
+                  : "text-[#8FA3BF] hover:text-white"
               }`}
               aria-pressed={emphasis === "monthly"}
             >
@@ -171,7 +171,7 @@ export default function PricingTiers() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
                 emphasis === "annual"
                   ? "bg-[#4FC3F7] text-black"
-                  : "text-[#9FB0C7] hover:text-white"
+                  : "text-[#8FA3BF] hover:text-white"
               }`}
               aria-pressed={emphasis === "annual"}
             >
@@ -210,16 +210,16 @@ export default function PricingTiers() {
                   </div>
                 )}
 
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#9FB0C7]">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#8FA3BF]">
                   {tier.name}
                 </h3>
 
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="text-5xl font-bold text-[#4FC3F7]">{tier.price}</span>
-                  <span className="text-sm text-[#6B7A93]">{tier.cadence}</span>
+                  <span className="text-sm text-[#5C6E8A]">{tier.cadence}</span>
                 </div>
 
-                <p className="mt-3 text-sm text-[#9FB0C7] min-h-[40px]">{tier.subhead}</p>
+                <p className="mt-3 text-sm text-[#8FA3BF] min-h-[40px]">{tier.subhead}</p>
 
                 {tier.scarcity && (
                   <div className="mt-2 inline-flex self-start items-center gap-1.5 px-2 py-0.5 rounded-md border border-[#4FC3F7]/30 bg-[#4FC3F7]/[0.06] text-[10px] font-medium text-[#4FC3F7] uppercase tracking-wider">
@@ -250,7 +250,7 @@ export default function PricingTiers() {
                 </a>
 
                 {tier.refundNote && (
-                  <div className="mt-3 text-xs text-[#6B7A93] text-center">
+                  <div className="mt-3 text-xs text-[#5C6E8A] text-center">
                     {tier.refundNote}
                   </div>
                 )}

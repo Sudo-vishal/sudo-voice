@@ -35,7 +35,7 @@ const Cross = () => (
     height="16"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="#6B7A93"
+    stroke="#5C6E8A"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -124,13 +124,13 @@ export default function PricingPage() {
 
       <main className="pt-20">
         {/* Hero strip */}
-        <section className="hero-gradient relative px-6 pt-16 pb-8">
+        <section className="hero-gradient grid-bg relative px-6 pt-16 pb-8">
           <div className="max-w-4xl mx-auto text-center relative z-10">
+            <div className="kicker mb-4">$ sudovoice --license</div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1]">
-              One-time fair price for an{" "}
-              <span className="gradient-text">India-built voice tool</span>
+              Free forever. <span className="gradient-text">Pay once if you want more.</span>
             </h1>
-            <p className="mt-5 text-lg md:text-xl text-[#9FB0C7] max-w-2xl mx-auto leading-relaxed">
+            <p className="mt-5 text-lg md:text-xl text-[#8FA3BF] max-w-2xl mx-auto leading-relaxed">
               Free for everyone. Pro for power users. Lifetime for the first 100 buyers
               who want to skip subscriptions for good.
             </p>
@@ -145,7 +145,7 @@ export default function PricingPage() {
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold">Why Pro?</h2>
-              <p className="mt-3 text-[#9FB0C7] text-lg max-w-xl mx-auto">
+              <p className="mt-3 text-[#8FA3BF] text-lg max-w-xl mx-auto">
                 What you get past the free tier.
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function PricingPage() {
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold">How we compare</h2>
-              <p className="mt-3 text-[#9FB0C7] text-lg max-w-xl mx-auto">
+              <p className="mt-3 text-[#8FA3BF] text-lg max-w-xl mx-auto">
                 Voice-typing tools side by side.
               </p>
             </div>
@@ -197,19 +197,19 @@ export default function PricingPage() {
               <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/5">
-                    <th className="text-left px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#6B7A93]">
+                    <th className="text-left px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#5C6E8A]">
                       Tool
                     </th>
-                    <th className="text-left px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#6B7A93]">
+                    <th className="text-left px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#5C6E8A]">
                       Pricing
                     </th>
-                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#6B7A93]">
+                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#5C6E8A]">
                       Hindi / Hinglish
                     </th>
-                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#6B7A93]">
+                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#5C6E8A]">
                       On-device
                     </th>
-                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#6B7A93]">
+                    <th className="text-center px-5 py-4 text-xs font-medium uppercase tracking-wider text-[#5C6E8A]">
                       Free tier
                     </th>
                   </tr>
@@ -227,7 +227,7 @@ export default function PricingPage() {
                       >
                         {row.tool}
                       </td>
-                      <td className="px-5 py-4 text-sm text-[#9FB0C7]">
+                      <td className="px-5 py-4 text-sm text-[#8FA3BF]">
                         {row.pricing}
                       </td>
                       <td className="px-5 py-4">
@@ -235,7 +235,7 @@ export default function PricingPage() {
                           {row.hindi ? <Check /> : <Cross />}
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-center text-sm text-[#9FB0C7]">
+                      <td className="px-5 py-4 text-center text-sm text-[#8FA3BF]">
                         {row.onDevice}
                       </td>
                       <td className="px-5 py-4">
@@ -256,7 +256,7 @@ export default function PricingPage() {
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold">Questions</h2>
-              <p className="mt-3 text-[#9FB0C7] text-lg">Eight common ones.</p>
+              <p className="mt-3 text-[#8FA3BF] text-lg">Eight common ones.</p>
             </div>
             <div className="space-y-3">
               {FAQS.map((item) => (
@@ -275,13 +275,13 @@ export default function PricingPage() {
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="text-[#6B7A93] group-open:rotate-180 group-open:text-[#4FC3F7] transition-transform shrink-0 ml-3"
+                      className="text-[#5C6E8A] group-open:rotate-180 group-open:text-[#4FC3F7] transition-transform shrink-0 ml-3"
                       aria-hidden="true"
                     >
                       <path d="m6 9 6 6 6-6" />
                     </svg>
                   </summary>
-                  <div className="px-5 pb-4 -mt-1 text-sm text-[#9FB0C7] leading-relaxed">
+                  <div className="px-5 pb-4 -mt-1 text-sm text-[#8FA3BF] leading-relaxed">
                     {item.a}
                   </div>
                 </details>
@@ -296,7 +296,7 @@ export default function PricingPage() {
             <h2 className="text-3xl md:text-4xl font-bold">
               Try free, upgrade when ready
             </h2>
-            <p className="mt-4 text-[#9FB0C7] text-lg max-w-xl mx-auto">
+            <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl mx-auto">
               Start on the free tier. Pay only if it earns its keep.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -313,7 +313,7 @@ export default function PricingPage() {
                 Download — Free in Early Access
               </a>
             </div>
-            <div className="mt-4 text-xs text-[#6B7A93]">30-day money-back</div>
+            <div className="mt-4 text-xs text-[#5C6E8A]">30-day money-back</div>
           </div>
         </section>
       </main>

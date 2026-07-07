@@ -1,73 +1,94 @@
+/* The pipeline, as a terminal would show it. */
 export default function HowItWorks() {
-  const steps = [
-    {
-      number: "01",
-      title: "Press the Hotkey",
-      description: "Hit Cmd+D from anywhere. The floating indicator turns cyan — you're live.",
-      floatClass: "animate-float",
-      glowClass: "glow-card-blue",
-      icon: (
-        <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#14203A] border border-white/10 font-mono text-sm">
-          <kbd className="px-2 py-0.5 rounded bg-white/10 text-xs">⌘</kbd>
-          <span className="text-[#6B7A93]">+</span>
-          <kbd className="px-2 py-0.5 rounded bg-white/10 text-xs">D</kbd>
-        </div>
-      ),
-    },
-    {
-      number: "02",
-      title: "Speak Naturally",
-      description: 'Talk like you normally would. Say "comma", "new line", or "scratch that" to edit.',
-      floatClass: "animate-float-delayed",
-      glowClass: "glow-card-purple",
-      icon: (
-        <div className="flex items-center gap-1 h-10">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="w-1.5 bg-cyan-500 rounded-full wave-bar"
-              style={{ height: 8 }}
-            />
-          ))}
-        </div>
-      ),
-    },
-    {
-      number: "03",
-      title: "Text Appears Instantly",
-      description: "Transcribed text is typed at your cursor — any app, any field. Zero friction.",
-      floatClass: "animate-float-slow",
-      glowClass: "glow-card-green",
-      icon: (
-        <div className="font-mono text-sm text-[#9FB0C7]">
-          Hello world<span className="animate-blink text-emerald-500">|</span>
-        </div>
-      ),
-    },
+  const stages = [
+    { name: "mic", detail: "16kHz capture + voice activity detection", color: "#FFBD2E" },
+    { name: "whisper", detail: "on-device transcription, 42x realtime", color: "#4FC3F7" },
+    { name: "cleanup", detail: "LLM strips fillers, fixes grammar (~100ms)", color: "#4FC3F7" },
+    { name: "cursor", detail: "clean text typed into the focused app", color: "#00E676" },
   ];
 
   return (
     <section id="how-it-works" className="py-24 px-6 relative">
       <div className="max-w-6xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold">
-            Three Steps. <span className="gradient-text">That&apos;s It.</span>
+        <div className="mb-14">
+          <div className="kicker mb-4">$ man sudovoice</div>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
+            One hotkey. <span className="text-[#5C6E8A]">One pipeline.</span>
           </h2>
-          <p className="mt-4 text-[#9FB0C7] text-lg max-w-xl mx-auto">
-            No setup wizards. No cloud accounts. No configuration files.
+          <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl">
+            No setup wizards, no cloud accounts, no config files.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {steps.map((step) => (
-            <div
-              key={step.number}
-              className={`glass-card ${step.glowClass} ${step.floatClass} rounded-2xl p-8`}
-            >
-              <div className="text-5xl font-bold text-white/5 mb-4">{step.number}</div>
-              <div className="mb-6">{step.icon}</div>
-              <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-              <p className="text-[#9FB0C7] text-sm leading-relaxed">{step.description}</p>
+        {/* the pipe */}
+        <div className="term">
+          <div className="term-bar">
+            <span className="font-mono text-xs text-[#5C6E8A]">pipeline</span>
+          </div>
+          <div className="p-6 md:p-8">
+            <div className="font-mono text-sm md:text-base flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-[#00E676]">$</span>
+              {stages.map((s, i) => (
+                <span key={s.name} className="flex items-center gap-3">
+                  <span
+                    className="px-3 py-1.5 rounded border"
+                    style={{ color: s.color, borderColor: `${s.color}44`, background: `${s.color}0d` }}
+                  >
+                    {s.name}
+                  </span>
+                  {i < stages.length - 1 && <span className="text-[#5C6E8A]">|</span>}
+                </span>
+              ))}
+            </div>
+            <div className="mt-6 grid md:grid-cols-4 gap-4">
+              {stages.map((s) => (
+                <div key={s.name} className="font-mono text-xs leading-5">
+                  <span className="text-[#5C6E8A]"># {s.name}:</span>
+                  <div className="text-[#8FA3BF] mt-1">{s.detail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* three steps, numbered like a shell history */}
+        <div className="mt-10 grid md:grid-cols-3 gap-4">
+          {[
+            {
+              n: "1",
+              title: "Hold the hotkey",
+              body: (
+                <>
+                  Hold{" "}
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-[#1C2940] font-mono text-xs text-[#8FA3BF]">
+                    ⌥ Option
+                  </kbd>{" "}
+                  from any app. The floating indicator lights up — you&apos;re live.
+                </>
+              ),
+            },
+            {
+              n: "2",
+              title: "Speak naturally",
+              body: <>Talk like a human, not a robot. Say &ldquo;comma&rdquo; or &ldquo;scratch that&rdquo; to edit as you go.</>,
+            },
+            {
+              n: "3",
+              title: "Release. It's typed.",
+              body: (
+                <>
+                  Cleaned text appears at your cursor.{" "}
+                  <span className="font-mono text-[#00E676]">done in 0.3s<span className="animate-blink">_</span></span>
+                </>
+              ),
+            },
+          ].map((s) => (
+            <div key={s.n} className="panel panel-hover p-6">
+              <div className="font-mono text-sm text-[#5C6E8A] mb-3">
+                <span className="text-[#00E676]">[{s.n}]</span>
+              </div>
+              <h3 className="text-base font-semibold mb-2">{s.title}</h3>
+              <p className="text-[#8FA3BF] text-sm leading-relaxed">{s.body}</p>
             </div>
           ))}
         </div>

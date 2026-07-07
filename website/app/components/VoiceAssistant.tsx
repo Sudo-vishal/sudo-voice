@@ -188,7 +188,7 @@ export default function VoiceAssistant() {
             </div>
             <div>
               <div className="text-sm font-semibold">SudoVoice AI</div>
-              <div className="text-xs text-[#6B7A93]">Powered by Gemini voice</div>
+              <div className="text-xs text-[#5C6E8A]">Powered by Gemini voice</div>
             </div>
           </div>
 
@@ -227,7 +227,7 @@ export default function VoiceAssistant() {
                   </div>
                 )}
                 {status === "idle" && (
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7A93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5C6E8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                     <line x1="12" x2="12" y1="19" y2="22" />
@@ -244,7 +244,7 @@ export default function VoiceAssistant() {
             </div>
 
             <div className="text-sm text-center">
-              {status === "idle" && <span className="text-[#6B7A93]">Tap to speak</span>}
+              {status === "idle" && <span className="text-[#5C6E8A]">Tap to speak</span>}
               {status === "listening" && <span className="text-cyan-400">Listening...</span>}
               {status === "thinking" && <span className="text-cyan-400">Thinking...</span>}
               {status === "speaking" && <span className="text-green-400">Speaking...</span>}
@@ -258,7 +258,7 @@ export default function VoiceAssistant() {
                 status === "listening"
                   ? "bg-red-500/15 text-red-400 border border-red-500/30"
                   : status === "speaking"
-                  ? "bg-white/5 text-[#6B7A93] border border-white/10"
+                  ? "bg-white/5 text-[#5C6E8A] border border-white/10"
                   : "bg-gradient-to-r from-emerald-600 to-cyan-600 text-white"
               }`}
             >
