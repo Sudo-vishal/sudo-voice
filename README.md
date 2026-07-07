@@ -10,11 +10,11 @@
 
 Mac · iOS · Android · Windows
 
-[![GitHub](https://img.shields.io/github/stars/Vishal-ml-ds/SudoVoice?style=social)](https://github.com/Vishal-ml-ds/SudoVoice)
+[![GitHub](https://img.shields.io/github/stars/Sudo-vishal/SudoVoice?style=social)](https://github.com/Sudo-vishal/SudoVoice)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20|%20Android-lightgrey)]()
 
-*by [AiwithVishal](https://github.com/Vishal-ml-ds)*
+*by [AiwithVishal](https://github.com/Sudo-vishal)*
 
 ---
 
@@ -513,7 +513,7 @@ quadrantChart
 
 ```bash
 # Clone
-git clone https://github.com/Vishal-ml-ds/SudoVoice.git
+git clone https://github.com/Sudo-vishal/SudoVoice.git
 cd SudoVoice
 
 # Build + Deploy
@@ -537,7 +537,7 @@ First launch:
 ### Option B: Self-Host on Android
 
 ```bash
-git clone https://github.com/Vishal-ml-ds/SudoVoice.git
+git clone https://github.com/Sudo-vishal/SudoVoice.git
 cd SudoVoice/android
 # Open in Android Studio → Build → Run
 # Enable "SudoVoice Voice" in Settings → Languages & Input
@@ -699,11 +699,11 @@ flowchart LR
 
 <div align="center">
 
-### Built by [AiwithVishal](https://github.com/Vishal-ml-ds)
+### Built by [AiwithVishal](https://github.com/Sudo-vishal)
 
 **Offline. Private. AI-powered.**
 
-[Website](https://sudovoice.com) · [GitHub](https://github.com/Vishal-ml-ds/SudoVoice) · [Twitter](https://twitter.com/aiwithvishal)
+[Website](https://sudovoice.com) · [GitHub](https://github.com/Sudo-vishal/SudoVoice) · [Twitter](https://twitter.com/aiwithvishal)
 
 ---
 
