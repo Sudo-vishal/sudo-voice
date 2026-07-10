@@ -8,6 +8,9 @@ enum VoiceCommand {
     case copy           // copy lastTranscription to NSPasteboard
     case paste          // send Cmd+V to active app
     case cut            // copy lastTranscription + delete it from active app
+    case stopDictation  // stop recording ("stop", "I'm done")
+    case selectAll      // send Cmd+A to active app
+    case pressEnter     // send Return key to active app
     case none           // not a command, continue normal processing
 }
 
@@ -47,6 +50,23 @@ final class VoiceCommandService {
         "cut", "cut that", "cut this", "cut it",
     ]
 
+    // Exact-match ONLY — "stop" is far too common inside real dictation
+    // ("the bus didn't stop") to allow prefix/suffix matching.
+    private static let stopPhrases: Set<String> = [
+        "stop", "stop recording", "stop listening", "stop now",
+        "i'm done", "im done", "that's it", "thats it",
+    ]
+
+    private static let selectAllPhrases: Set<String> = [
+        "select all", "select everything",
+        "highlight all", "highlight everything",
+    ]
+
+    private static let pressEnterPhrases: Set<String> = [
+        "press enter", "hit enter", "press return", "hit return",
+        "new line", "next line", "enter",
+    ]
+
     /// Detect if raw Whisper output is a voice command.
     static func detect(_ rawText: String) -> VoiceCommand {
         let normalized = rawText
@@ -65,6 +85,9 @@ final class VoiceCommandService {
         if copyPhrases.contains(normalized) { return .copy }
         if pastePhrases.contains(normalized) { return .paste }
         if cutPhrases.contains(normalized) { return .cut }
+        if stopPhrases.contains(normalized) { return .stopDictation }
+        if selectAllPhrases.contains(normalized) { return .selectAll }
+        if pressEnterPhrases.contains(normalized) { return .pressEnter }
 
         // Prefix match (Whisper might add extra words after)
         for phrase in scratchPhrases {
@@ -124,6 +147,11 @@ final class VoiceCommandService {
             for phrase in cutPhrases {
                 if normalized.hasSuffix(phrase) || normalized.contains(phrase) {
                     return .cut
+                }
+            }
+            for phrase in selectAllPhrases {
+                if normalized.hasSuffix(phrase) {
+                    return .selectAll
                 }
             }
         }

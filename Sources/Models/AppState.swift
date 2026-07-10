@@ -1027,6 +1027,27 @@ final class AppState {
                     logToFile("CUT: copied \(lastTranscription.count) chars + deleted from app")
                 }
                 return
+            case .stopDictation:
+                logToFile("STOP command — ending dictation")
+                stopRecording()
+                return
+            case .selectAll:
+                let src = CGEventSource(stateID: .hidSystemState)
+                if let d = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true),
+                   let u = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
+                    d.flags = .maskCommand; u.flags = .maskCommand
+                    d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
+                    logToFile("SELECT ALL: Cmd+A sent")
+                }
+                return
+            case .pressEnter:
+                let src = CGEventSource(stateID: .hidSystemState)
+                if let d = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: true),
+                   let u = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: false) {
+                    d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
+                    logToFile("PRESS ENTER: Return sent")
+                }
+                return
             case .none:
                 break
             }
@@ -1365,6 +1386,27 @@ final class AppState {
                     }
                     return
 
+                case .stopDictation:
+                    logToFile("STOP command — ending dictation")
+                    await MainActor.run { stopRecording() }
+                    return
+                case .selectAll:
+                    let srcSA = CGEventSource(stateID: .hidSystemState)
+                    if let d = CGEvent(keyboardEventSource: srcSA, virtualKey: 0, keyDown: true),
+                       let u = CGEvent(keyboardEventSource: srcSA, virtualKey: 0, keyDown: false) {
+                        d.flags = .maskCommand; u.flags = .maskCommand
+                        d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
+                        logToFile("SELECT ALL: Cmd+A sent")
+                    }
+                    return
+                case .pressEnter:
+                    let srcPE = CGEventSource(stateID: .hidSystemState)
+                    if let d = CGEvent(keyboardEventSource: srcPE, virtualKey: 36, keyDown: true),
+                       let u = CGEvent(keyboardEventSource: srcPE, virtualKey: 36, keyDown: false) {
+                        d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
+                        logToFile("PRESS ENTER: Return sent")
+                    }
+                    return
                 case .none:
                     break
                 }
