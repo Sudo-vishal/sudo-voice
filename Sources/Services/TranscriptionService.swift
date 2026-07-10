@@ -4,6 +4,32 @@ import Foundation
 final class TranscriptionService {
     private var whisperKit: WhisperKit?
 
+    /// Model storage — ~/Library/Application Support/IndianWhisper/models.
+    /// WhisperKit's default is ~/Documents/huggingface, which triggers macOS's
+    /// scary "would like to access files in your Documents folder" consent
+    /// dialog on first run. App Support needs no permission dialog at all.
+    /// Existing installs are migrated silently (move, not re-download).
+    static let modelBase: URL = {
+        let fm = FileManager.default
+        let base = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/IndianWhisper/models", isDirectory: true)
+        try? fm.createDirectory(at: base, withIntermediateDirectories: true)
+
+        // One-time migration from the old Documents location
+        let legacy = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/huggingface", isDirectory: true)
+        let migrated = base.appendingPathComponent("huggingface", isDirectory: true)
+        if fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: migrated.path) {
+            do {
+                try fm.moveItem(at: legacy, to: migrated)
+                logToFile("Migrated Whisper models: Documents/huggingface → App Support")
+            } catch {
+                logToFile("Model migration failed (will re-download to App Support): \(error)")
+            }
+        }
+        return base
+    }()
+
     /// Load a Whisper model with REAL download progress.
     ///
     /// Previously this passed `download: true` to WhisperKitConfig, which
@@ -26,6 +52,7 @@ final class TranscriptionService {
         // If already on disk, this returns near-instantly at 100%.
         let modelFolder = try await WhisperKit.download(
             variant: modelName,
+            downloadBase: Self.modelBase,
             from: "argmaxinc/whisperkit-coreml",
             progressCallback: { progress in
                 onProgress(progress.fractionCompleted)
@@ -35,8 +62,10 @@ final class TranscriptionService {
         logToFile("Model \(modelName) ready at \(modelFolder.path) — initializing")
 
         // Step 2: load from the resolved local folder (no second download).
+        // downloadBase also steers the tokenizer cache away from ~/Documents.
         let config = WhisperKitConfig(
             model: modelName,
+            downloadBase: Self.modelBase,
             modelFolder: modelFolder.path,
             verbose: true,
             logLevel: .info,
@@ -86,8 +115,8 @@ final class TranscriptionService {
     /// Check if a model is downloaded locally
     func isModelDownloaded(_ model: WhisperModelSize) -> Bool {
         let modelName = "openai_whisper-\(model.rawValue)"
-        let localPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/huggingface/models/argmaxinc/whisperkit-coreml/\(modelName)")
+        let localPath = Self.modelBase
+            .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml/\(modelName)")
         return FileManager.default.fileExists(atPath: localPath.path)
     }
 }
