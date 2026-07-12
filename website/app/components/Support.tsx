@@ -1,71 +1,72 @@
-export default function Support() {
-  const channels = [
-    {
-      cmd: "report_bug()",
-      title: "Something broke?",
-      body: "Open an issue on GitHub with the log line — fixes ship fast.",
-      href: "https://github.com/Sudo-vishal/SudoVoice/issues/new?template=bug_report.md",
-      accent: "#FF5F57",
-    },
-    {
-      cmd: "request_feature()",
-      title: "Missing something?",
-      body: "Tell us what you need. The roadmap is built from these.",
-      href: "https://github.com/Sudo-vishal/SudoVoice/issues/new?template=feature_request.md",
-      accent: "#4FC3F7",
-    },
-    {
-      cmd: "join_community()",
-      title: "Follow along",
-      body: "Tutorials, release notes, and builds-in-public on YouTube.",
-      href: "https://youtube.com/@AiwithVishal",
-      accent: "#00E676",
-    },
-  ];
+/* Support channels as a systemctl-style status listing — not a card grid. */
+const CHANNELS = [
+  {
+    cmd: "sudovoice report-bug",
+    status: "open",
+    color: "#FF5F57",
+    desc: "GitHub issue with the log line — fixes ship fast",
+    href: "https://github.com/Sudo-vishal/SudoVoice/issues/new?template=bug_report.md",
+    link: "github issues",
+  },
+  {
+    cmd: "sudovoice request-feature",
+    status: "open",
+    color: "#4FC3F7",
+    desc: "the roadmap is built from these",
+    href: "https://github.com/Sudo-vishal/SudoVoice/issues/new?template=feature_request.md",
+    link: "feature template",
+  },
+  {
+    cmd: "sudovoice follow",
+    status: "live",
+    color: "#00E676",
+    desc: "tutorials, release notes, builds-in-public",
+    href: "https://youtube.com/@AiwithVishal",
+    link: "youtube.com/@AiwithVishal",
+  },
+];
 
+export default function Support() {
   return (
     <section className="py-24 px-6 relative">
-      <div className="max-w-5xl mx-auto relative z-10">
-        <div className="mb-12">
-          <div className="kicker mb-4">$ sudovoice --support</div>
+      <div className="max-w-4xl mx-auto relative z-10">
+        <div className="mb-10">
+          <div className="kicker mb-4">$ systemctl status sudovoice-support</div>
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
             Maintained. <span className="text-[#5C6E8A]">Actively.</span>
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {channels.map((c) => (
-            <a
-              key={c.cmd}
-              href={c.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="panel panel-hover p-6 group"
-            >
-              <div className="font-mono text-[14px] mb-3" style={{ color: c.accent }}>
-                {c.cmd}
-              </div>
-              <h3 className="font-semibold mb-1.5">{c.title}</h3>
-              <p className="text-sm text-[#8FA3BF] leading-relaxed">{c.body}</p>
-              <div className="mt-4 font-mono text-xs text-[#5C6E8A] group-hover:text-[#00E676] transition-colors">
-                open →
-              </div>
-            </a>
-          ))}
-        </div>
-
-        <div className="mt-8 panel px-5 py-3.5 font-mono text-[13px] text-[#8FA3BF] inline-flex items-center gap-3">
-          <span className="text-[#00E676]">i</span>
-          updates announced on{" "}
-          <a
-            href="https://youtube.com/@AiwithVishal"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#00E676] hover:underline"
-          >
-            youtube
-          </a>{" "}
-          — the app checks for new versions automatically.
+        <div className="term overflow-x-auto">
+          <div className="term-bar">
+            <span className="font-mono text-xs text-[#5C6E8A]">support.service</span>
+            <span className="ml-auto font-mono text-xs text-[#00E676]">
+              ● active (running)
+            </span>
+          </div>
+          <div className="p-6 md:p-8 font-mono text-[12.5px] md:text-[13.5px] leading-8 min-w-[560px]">
+            {CHANNELS.map((c) => (
+              <a
+                key={c.cmd}
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block whitespace-nowrap rounded px-3 py-1.5 -mx-3 hover:bg-[#00E676]/[0.04] transition-colors group"
+              >
+                <span style={{ color: c.color }}>●</span>{" "}
+                <span className="text-[#E6EDF7] inline-block min-w-[230px]">{c.cmd}</span>
+                <span className="text-[#5C6E8A]">
+                  [{c.status}] {c.desc} ·{" "}
+                </span>
+                <span className="text-[#4FC3F7] group-hover:text-[#00E676] transition-colors">
+                  {c.link} ↗
+                </span>
+              </a>
+            ))}
+            <div className="mt-4 text-[#3D4E6B]">
+              # updates announced on youtube — the app checks for new versions automatically
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -49,8 +49,8 @@ export default function DocsPage() {
               Docs
             </h1>
             <p className="mt-4 text-[#8FA3BF] text-lg max-w-xl">
-              Everything you need to go from download to dictating — on Windows,
-              macOS, and Android.
+              From download to dictating in five minutes — on Windows, macOS,
+              and Android.
             </p>
           </div>
 

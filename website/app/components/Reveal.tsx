@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
-/* Scroll-choreographed reveal: fades + lifts + unblurs when entering the
-   viewport. `delay` (ms) staggers siblings. */
+/* Additive scroll polish: content is FULLY VISIBLE by default (no JS, no
+   IntersectionObserver required — screenshots, crawlers, and reader modes
+   see everything). When the element scrolls into view, a one-shot CSS
+   animation lifts/fades it in. If the observer never fires, nothing is
+   ever hidden. */
 export default function Reveal({
   children,
   delay = 0,
@@ -14,15 +17,14 @@ export default function Reveal({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setInView(true);
+          el.classList.add("in");
           io.disconnect();
         }
       },
@@ -35,7 +37,7 @@ export default function Reveal({
   return (
     <div
       ref={ref}
-      className={`reveal ${inView ? "in" : ""} ${className}`}
+      className={`reveal ${className}`}
       style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}
     >
       {children}

@@ -31,9 +31,9 @@ export default function Footer() {
             <div>
               <h4 className="font-mono text-xs text-[#5C6E8A] mb-4">// product</h4>
               <ul className="space-y-3 font-mono text-[13px] text-[#8FA3BF]">
-                <li><a href="/#features" className="hover:text-[#00E676] transition-colors">features</a></li>
+                <li><a href="/#features" className="hover:text-[#00E676] transition-colors">flags</a></li>
                 <li><a href="/#models" className="hover:text-[#00E676] transition-colors">models</a></li>
-                <li><a href="/#calculator" className="hover:text-[#00E676] transition-colors">roi-calculator</a></li>
+                <li><a href="/#latency" className="hover:text-[#00E676] transition-colors">latency-trace</a></li>
                 <li><a href="/pricing" className="hover:text-[#00E676] transition-colors">pricing</a></li>
                 <li><a href="/docs" className="hover:text-[#00E676] transition-colors">docs</a></li>
                 <li><a href="/changelog" className="hover:text-[#00E676] transition-colors">changelog</a></li>
