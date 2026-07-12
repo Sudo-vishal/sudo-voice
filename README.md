@@ -12,7 +12,10 @@ Mac · iOS · Android · Windows
 
 [![GitHub](https://img.shields.io/github/stars/Sudo-vishal/SudoVoice?style=social)](https://github.com/Sudo-vishal/SudoVoice)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20|%20Android-lightgrey)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20|%20macOS%20|%20Android-lightgrey)]()
+[![Build](https://github.com/Sudo-vishal/SudoVoice/actions/workflows/build.yml/badge.svg)](https://github.com/Sudo-vishal/SudoVoice/actions/workflows/build.yml)
+
+**Download:** [Windows](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice-Setup.exe) · [macOS](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.dmg) · [Android](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.apk)
 
 *by [AiwithVishal](https://github.com/Sudo-vishal)*
 
@@ -79,9 +82,9 @@ mindmap
       No waiting
     📱 Cross Platform
       macOS ✅
+      Windows ✅
       Android 🚧
       iOS planned
-      Windows planned
 ```
 
 ---
@@ -233,9 +236,12 @@ graph TB
 | Path | What it is |
 |------|-----------|
 | `Sources/` | macOS app — Swift, WhisperKit, menu-bar UI |
+| `windows/` | Windows app — Electron, whisper.cpp, tray + push-to-talk |
 | `android/` | Android app — Kotlin, voice IME |
 | `website/` | sudovoice.com — Next.js marketing site + update-check API |
+| `backend/` | Supabase schema + Razorpay webhook edge functions (optional cloud layer) |
 | `assets/` | App icon and brand assets |
+| `.github/workflows/` | CI: every push builds all 3 platforms; tags publish releases |
 
 ### macOS — Codebase Structure
 
@@ -331,9 +337,9 @@ timeline
 | Platform | Engine | Auto-Type Method | Status |
 |----------|--------|-----------------|--------|
 | **macOS** | WhisperKit (CoreML) | CGEvent keystroke injection | ✅ **Complete** |
+| **Windows** | whisper.cpp (Electron) | Clipboard-paste injection | ✅ **Complete** |
 | **Android** | Sherpa-ONNX | WhisperIME (system keyboard) | 🚧 **In Progress** |
 | **iOS** | WhisperKit | Keyboard Extension | 📋 Planned |
-| **Windows** | whisper.cpp | SendInput (Win32) | 📋 Planned |
 
 ---
 
@@ -543,7 +549,21 @@ First launch:
 3. Model downloads automatically (~140MB)
 4. **Cmd+D** to start voice typing!
 
-### Option B: Self-Host on Android
+### Option B: Self-Host on Windows
+
+```bash
+git clone https://github.com/Sudo-vishal/SudoVoice.git
+cd SudoVoice/windows
+npm install
+npm start          # run it
+npm run dist       # build SudoVoice-Setup.exe
+```
+
+First launch: open Settings from the tray icon, click **Download / verify model**
+(one-time, ~142MB), then **hold Right Ctrl**, speak, release — your words are
+typed at the cursor. 100% offline.
+
+### Option C: Self-Host on Android
 
 ```bash
 git clone https://github.com/Sudo-vishal/SudoVoice.git
@@ -552,7 +572,7 @@ cd SudoVoice/android
 # Enable "SudoVoice Voice" in Settings → Languages & Input
 ```
 
-### Option C: Download Pro
+### Option D: Download Pro
 
 1. Visit [sudovoice.com](https://sudovoice.com)
 2. Download for your platform
@@ -683,7 +703,7 @@ flowchart LR
 **We need help with:**
 - 🇮🇳 **Indian languages** — Hindi, Tamil, Telugu, Marathi, Bengali, Gujarati
 - 🤖 **Android** — finish WhisperIME, test on real devices
-- 🪟 **Windows** — Tauri + whisper.cpp port
+- 🪟 **Windows** — polish the Electron app; long-term Tauri migration for a ~10MB installer
 - 🎨 **Design** — app icon, landing page
 - 📖 **Docs** — tutorials, translations, video guides
 - 🐛 **Bugs** — test edge cases, report issues
@@ -694,6 +714,9 @@ flowchart LR
 
 ### macOS
 - macOS 14+ (Sonoma) · Apple Silicon (M1/M2/M3/M4) · ~500MB disk · Swift 5.9+
+
+### Windows
+- Windows 10/11 x64 · ~400MB disk (app + base model) · Node 20+ to self-host
 
 ### Android
 - Android 8.0+ (API 26) · ARM64 device · ~150MB disk · Android Studio

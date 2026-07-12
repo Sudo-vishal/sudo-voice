@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import OSDownload from "./OSDownload";
 
 const RAW = "um okay so basically we should uh ship this to production right";
 const CLEAN = "We should ship this to production, right?";
@@ -69,13 +70,8 @@ export default function Hero() {
             in any app. <span className="text-[#E6EDF7] font-medium">Audio never leaves your device.</span>
           </p>
 
-          <div className="animate-fade-in-up animation-delay-600 mt-10 flex flex-wrap items-center gap-4">
-            <a href="#download" className="btn-primary px-8 py-4 text-base">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3v12m0 0 4-4m-4 4-4-4" /><path d="M4 19h16" />
-              </svg>
-              Download free
-            </a>
+          <div className="animate-fade-in-up animation-delay-600 mt-10 flex flex-wrap items-start gap-4">
+            <OSDownload />
             <a
               href="https://github.com/Sudo-vishal/SudoVoice"
               target="_blank"
@@ -90,7 +86,7 @@ export default function Hero() {
           </div>
 
           <div className="animate-fade-in-up animation-delay-600 mt-6 font-mono text-[13px] text-[#5C6E8A]">
-            mac · windows · chrome&nbsp;&nbsp;·&nbsp;&nbsp;<span className="text-[#7CFFC4]">$0 forever</span>&nbsp;&nbsp;·&nbsp;&nbsp;open source
+            windows · macos · android&nbsp;&nbsp;·&nbsp;&nbsp;<span className="text-[#7CFFC4]">$0 forever</span>&nbsp;&nbsp;·&nbsp;&nbsp;open source
           </div>
         </div>
 
@@ -100,7 +96,7 @@ export default function Hero() {
 
           {/* floating chips */}
           <div className="chip-float absolute -top-7 -left-3 z-20 panel px-3.5 py-2 font-mono text-xs text-[#7CFFC4] shadow-xl shadow-black/40">
-            ⌥ hold-to-talk
+            ⌥ / RCtrl hold-to-talk
           </div>
           <div className="chip-float chip-float-2 absolute -bottom-6 left-10 z-20 panel px-3.5 py-2 font-mono text-xs text-[#4FC3F7] shadow-xl shadow-black/40">
             0 cloud calls

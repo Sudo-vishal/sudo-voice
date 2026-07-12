@@ -19,7 +19,8 @@ export default function Footer() {
               </div>
               <p className="text-sm text-[#8FA3BF] max-w-sm leading-relaxed">
                 Offline voice-to-text that types at your cursor. Whisper on your
-                machine, LLM cleanup, zero third-party tracking.
+                machine, LLM cleanup, zero third-party tracking. For Windows,
+                macOS, and Android.
               </p>
               <div className="mt-4 font-mono text-xs text-[#5C6E8A]">
                 $ audio --stays local&nbsp;&nbsp;·&nbsp;&nbsp;cloud sync only if you sign in
@@ -34,6 +35,8 @@ export default function Footer() {
                 <li><a href="/#models" className="hover:text-[#00E676] transition-colors">models</a></li>
                 <li><a href="/#calculator" className="hover:text-[#00E676] transition-colors">roi-calculator</a></li>
                 <li><a href="/pricing" className="hover:text-[#00E676] transition-colors">pricing</a></li>
+                <li><a href="/docs" className="hover:text-[#00E676] transition-colors">docs</a></li>
+                <li><a href="/changelog" className="hover:text-[#00E676] transition-colors">changelog</a></li>
                 <li><a href="/#download" className="hover:text-[#00E676] transition-colors">download</a></li>
               </ul>
             </div>

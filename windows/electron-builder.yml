@@ -7,6 +7,9 @@ directories:
   output: dist
   buildResources: build
 
+# uiohook-napi ships N-API prebuilds — never node-gyp rebuild (needs no VS toolchain)
+npmRebuild: false
+
 files:
   - src/**/*
   - package.json

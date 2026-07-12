@@ -17,16 +17,16 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SudoVoice — Your Voice, with Root Access",
   description:
-    "Offline voice typing for Mac, Windows, and Chrome. Whisper runs on your machine, an LLM strips the filler, clean text lands at your cursor in any app. Free, open source, no subscription.",
+    "Offline voice typing for Windows, macOS, and Android. Whisper runs on your machine, an LLM strips the filler, clean text lands at your cursor in any app. Free, open source, no subscription.",
   keywords: [
     "voice to text",
     "voice typing",
     "speech recognition",
     "whisper",
     "dictation",
-    "mac",
     "windows",
-    "chrome extension",
+    "mac",
+    "android",
     "on-device",
     "free",
     "indian english",
