@@ -1,8 +1,8 @@
 {
   "version": "2.6.0",
-  "minimumOS": "14.0",
+  "minimumOS": "8.0",
   "releaseDate": "2026-07-12",
-  "downloadURL": "https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.dmg",
+  "downloadURL": "https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.apk",
   "releaseNotes": "## SudoVoice v2.6.0 \u2014 the cross-platform release\n\n**Windows app launches.** Hold Right Ctrl, speak, release \u2014 your words are typed at your cursor in any app. 100% offline (whisper.cpp on-device), system tray, floating terminal indicator, optional AI cleanup with your own Gemini key.\n\n**All three platforms, one release:**\n- `SudoVoice-Setup.exe` \u2014 Windows 10/11 x64 (unsigned v1: SmartScreen \u2192 \"More info\" \u2192 \"Run anyway\")\n- `SudoVoice.dmg` \u2014 macOS 14+ Apple Silicon (unsigned: right-click \u2192 Open the first time)\n- `SudoVoice.apk` \u2014 Android 8+ (sideload; debug-signed preview)\n\n**Also in this release:**\n- CI now builds every platform on every push; releases are fully automated\n- Website: OS-aware downloads, /docs, /changelog\n- Optional cloud layer (Supabase + Razorpay) scaffolded for accounts & Pro licensing\n\nFirst run downloads the Whisper model (~142 MB, one time). Your voice never leaves your device.",
-  "sha256": "cd8243464d684f788566305fdee86d1322e434d1ab10b9344bde124a0504eafc"
+  "sha256": "a5b62405bf47f5aa3e210dd03692b6fc243934cf718f58bac48ad0c10b8f1d25"
 }
