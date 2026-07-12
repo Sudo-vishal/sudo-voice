@@ -92,7 +92,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* CTA */}
         <div className="mt-16 glass-card glow-card-cyan rounded-2xl p-8 text-center">
           <h3 className="text-xl font-bold mb-2">Ready to stop typing?</h3>
-          <p className="text-[#8FA3BF] text-sm mb-6">Free voice-to-text for Windows, macOS, and Android. No subscription.</p>
+          <p className="text-[#8FA3BF] text-sm mb-6">Free voice-to-text for Mac, Windows, and Chrome. No subscription.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/#download"

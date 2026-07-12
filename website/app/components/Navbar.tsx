@@ -8,8 +8,6 @@ const LINKS: [string, string][] = [
   ["/#how-it-works", "how"],
   ["/#features", "features"],
   ["/#models", "models"],
-  ["/docs", "docs"],
-  ["/changelog", "changelog"],
   ["/blog", "blog"],
   ["/pricing", "pricing"],
 ];

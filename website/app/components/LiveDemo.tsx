@@ -17,16 +17,6 @@ export default function LiveDemo() {
     if (!SpeechRecognition) {
       setSupported(false);
     }
-    // Kill the mic if the user navigates away mid-recording.
-    return () => {
-      const rec = recognitionRef.current;
-      if (rec) {
-        rec.onresult = null;
-        rec.onend = null;
-        rec.onerror = null;
-        try { rec.abort(); } catch { /* noop */ }
-      }
-    };
   }, []);
 
   const startListening = useCallback(() => {
@@ -77,16 +67,7 @@ export default function LiveDemo() {
   }, []);
 
   const stopListening = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (rec) {
-      // Detach handlers BEFORE aborting — Chrome keeps delivering queued
-      // onresult events after stop(), which made text keep appearing.
-      rec.onresult = null;
-      rec.onend = null;
-      rec.onerror = null;
-      try { rec.abort(); } catch { /* already stopped */ }
-      recognitionRef.current = null;
-    }
+    recognitionRef.current?.stop();
     setIsListening(false);
     setInterimText("");
   }, []);
@@ -111,7 +92,7 @@ export default function LiveDemo() {
           <div className="glass-card rounded-2xl p-8">
             <p className="text-[#8FA3BF]">
               This browser doesn&apos;t support the live demo — but the apps don&apos;t need it.{" "}
-              <a href="/#download" className="text-[#4FC3F7] hover:text-[#4FC3F7]/80">Download the Windows, Mac, or Android app</a>{" "}
+              <a href="/#download" className="text-[#4FC3F7] hover:text-[#4FC3F7]/80">Download the Mac or Windows app</a>{" "}
               for full on-device transcription, or open this page in Chrome to try the demo.
             </p>
           </div>

@@ -842,10 +842,8 @@ The best product is not always the most polished. Sometimes it is the one that i
 ### Try It
 
 - **Website:** [sudovoice.com](https://sudovoice.com)
-- **Mac Download:** [Direct DMG](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.dmg)
-- **Windows Download:** [Installer .exe](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice-Setup.exe)
-- **Android Download:** [APK](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.apk)
-- **Chrome Extension:** Coming soon
+- **Mac Download:** [Direct DMG](https://sudovoice.com/releases/SudoVoice-v1.0.0.dmg)
+- **Chrome Extension:** Coming this week
 - **Live Demo:** [Try in browser](https://sudovoice.com/#try-it) — no install needed
 - **GitHub:** [Open source](https://github.com/Sudo-vishal/sudovoice)
 

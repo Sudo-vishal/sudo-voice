@@ -7,7 +7,7 @@ import HashScroll from "@/app/components/HashScroll";
 export const metadata: Metadata = {
   title: "Pricing — SudoVoice Voice Typing",
   description:
-    "Free voice-to-text for Windows, macOS, Android. Pro from $12/month. Lifetime $249. 30-day money-back. No subscription required for the free tier.",
+    "Free voice-to-text for Mac, Windows, Chrome. Pro from $12/month. Lifetime $249. 30-day money-back. No subscription required for the free tier.",
 };
 
 const TIER_IDS = ["free", "pro-monthly", "pro-annual", "lifetime"] as const;
@@ -51,7 +51,7 @@ const COMPARISON = [
     tool: "SudoVoice",
     pricing: "$0 free · $99/yr · $249 lifetime",
     hindi: true,
-    onDevice: "Win / Mac / Android",
+    onDevice: "Mac",
     freeTier: true,
     highlighted: true,
   },
@@ -100,7 +100,7 @@ const FAQS = [
   },
   {
     q: "How many devices?",
-    a: "Pro covers 3 devices. Lifetime covers 5 devices. Devices can be any mix of Windows, Mac, and Android.",
+    a: "Pro covers 3 devices. Lifetime covers 5 devices. Devices can be a mix of Mac and Windows. The Chrome extension is unmetered — install it on as many browsers as you like.",
   },
   {
     q: "Refunds?",

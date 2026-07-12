@@ -11,7 +11,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Windows 10/11 (x64), macOS 14+ (Apple Silicon and Intel), and Android today. On Windows you hold Right Ctrl to talk and it types at your cursor in any app; on Android it ships as a keyboard (IME). A Chrome extension is coming soon, and Linux is on the roadmap.",
+    a: "macOS 14+ (Apple Silicon and Intel) and Windows 10/11 today. A Chrome extension is in review, and Linux is on the roadmap.",
   },
   {
     q: "How is this different from macOS dictation or Wispr Flow?",
@@ -23,7 +23,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I read the code?",
-    a: "All of it. SudoVoice is AGPL-3.0 on GitHub — the Windows app, the Mac app, the Android app, and this website. Audit the audio path yourself; that's the point.",
+    a: "All of it. SudoVoice is AGPL-3.0 on GitHub — the Mac app, the Android app, and this website. Audit the audio path yourself; that's the point.",
   },
 ];
 
