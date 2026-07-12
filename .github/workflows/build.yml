@@ -12,7 +12,7 @@ on:
 jobs:
   macos:
     name: macOS app (.dmg)
-    runs-on: macos-14
+    runs-on: macos-15 # Xcode 16 / Swift 6 — required by WhisperKit's dependency tree
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +60,9 @@ jobs:
         with:
           gradle-version: "8.5"
 
+      - name: Fetch sherpa-onnx AAR
+        run: bash scripts/fetch-sherpa.sh
+
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
@@ -78,27 +81,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Skip if Windows app not present yet
-        id: gate
-        shell: bash
-        run: |
-          if [ -f package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
-
       - uses: actions/setup-node@v4
-        if: steps.gate.outputs.present == 'true'
         with:
           node-version: "22"
 
       - name: Install dependencies
-        if: steps.gate.outputs.present == 'true'
         run: npm ci
 
       - name: Build NSIS installer
-        if: steps.gate.outputs.present == 'true'
         run: npx electron-builder --win nsis --publish never
 
       - uses: actions/upload-artifact@v4
-        if: steps.gate.outputs.present == 'true'
         with:
           name: SudoVoice-Windows
           path: windows/dist/SudoVoice-Setup.exe

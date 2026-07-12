@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; user-select: none; }
+  #chip {
+    display: flex; align-items: center; gap: 8px;
+    height: 36px; margin: 4px auto; padding: 0 16px; width: fit-content;
+    background: rgba(4, 7, 15, 0.92);
+    border: 1px solid rgba(0, 230, 118, 0.35);
+    border-radius: 8px;
+    font: 13px/36px "Cascadia Code", Consolas, monospace;
+    color: #00E676;
+    box-shadow: 0 4px 24px rgba(0, 230, 118, 0.15);
+    transition: opacity 0.25s ease;
+  }
+  #dot { width: 8px; height: 8px; border-radius: 50%; background: #2a3a4a; }
+  .listening #dot { background: #00E676; animation: pulse 1s infinite; }
+  .transcribing #dot { background: #4FC3F7; animation: pulse 0.6s infinite; }
+  .typing #dot { background: #00E676; }
+  .setup #dot { background: #4FC3F7; animation: pulse 1.4s infinite; }
+  .error #chip { border-color: rgba(255, 82, 82, 0.5); color: #FF8A80; }
+  .error #dot { background: #FF5252; }
+  .idle #chip { opacity: 0; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+</style>
+</head>
+<body class="idle">
+  <div id="chip"><span id="dot"></span><span id="label">$ ready</span></div>
+<script>
+  const labels = {
+    idle: "$ ready",
+    setup: "$ setup",
+    listening: "$ listening…",
+    transcribing: "$ transcribing…",
+    typing: "$ typing…",
+    error: "$ error",
+  };
+  window.sudovoice.onState(({ state, detail }) => {
+    document.body.className = state;
+    document.getElementById("label").textContent =
+      detail ? `${labels[state] || state} ${detail}` : (labels[state] || state);
+  });
+</script>
+</body>
+</html>

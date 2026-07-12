@@ -48,8 +48,10 @@ android {
 }
 
 dependencies {
-    // Sherpa-ONNX — offline Whisper inference on Android
-    implementation("com.k2fsa.sherpa:onnx:1.10.30")
+    // Sherpa-ONNX — offline Whisper inference on Android.
+    // Not on Maven Central: the official AAR comes from GitHub releases.
+    // Fetch once with scripts/fetch-sherpa.sh (CI does this automatically).
+    implementation(files("libs/sherpa-onnx-1.12.14.aar"))
 
     // AndroidX
     implementation("androidx.core:core-ktx:1.12.0")

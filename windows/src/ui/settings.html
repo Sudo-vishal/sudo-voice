@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>SudoVoice Settings</title>
+<style>
+  :root {
+    --bg: #04070F; --panel: #0A1220; --line: rgba(0,230,118,0.18);
+    --green: #00E676; --cyan: #4FC3F7; --text: #D7E2EC; --dim: #6B7A8C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+    font: 14px/1.5 "Cascadia Code", Consolas, monospace;
+  }
+  h1 { font-size: 16px; color: var(--green); margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 20px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .panel h2 { font-size: 12px; color: var(--cyan); margin: 0 0 12px; text-transform: lowercase; }
+  .panel h2::before { content: "$ "; color: var(--green); }
+  label { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; gap: 12px; }
+  label span { color: var(--text); }
+  select, input[type=text], input[type=password] {
+    background: var(--bg); color: var(--green); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 10px; font: inherit; min-width: 220px;
+  }
+  input[type=checkbox] { accent-color: var(--green); width: 16px; height: 16px; }
+  button {
+    background: var(--green); color: #04170C; border: 0; border-radius: 6px;
+    padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--green); border: 1px solid var(--line); }
+  #status { color: var(--dim); font-size: 12px; min-height: 18px; margin-top: 8px; }
+  .ok { color: var(--green); } .warn { color: #FFB74D; }
+  .hint { color: var(--dim); font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <h1>sudovoice</h1>
+  <div class="sub">your voice, with root access — <span id="version"></span></div>
+
+  <div class="panel">
+    <h2>hotkey</h2>
+    <label><span>Mode</span>
+      <select id="hotkeyMode">
+        <option value="hold">Hold to talk (push-to-talk)</option>
+        <option value="toggle">Toggle (press to start/stop)</option>
+      </select>
+    </label>
+    <label><span>Hold key</span>
+      <select id="holdKey">
+        <option value="CtrlRight">Right Ctrl</option>
+        <option value="AltRight">Right Alt</option>
+        <option value="F9">F9</option>
+        <option value="CapsLock">Caps Lock</option>
+      </select>
+    </label>
+    <div class="hint">Toggle shortcut: Ctrl+Shift+Space</div>
+  </div>
+
+  <div class="panel">
+    <h2>speech model</h2>
+    <label><span>Whisper model</span>
+      <select id="model">
+        <option value="tiny">tiny — fastest (75 MB)</option>
+        <option value="base">base — balanced (142 MB)</option>
+        <option value="small">small — most accurate (466 MB)</option>
+      </select>
+    </label>
+    <label><span>Language</span>
+      <select id="language">
+        <option value="auto">Auto-detect</option>
+        <option value="en">English</option>
+        <option value="hi">Hindi</option>
+      </select>
+    </label>
+    <button id="download">Download / verify model</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2>ai cleanup <span style="color:var(--dim)">(optional, online)</span></h2>
+    <label><span>Enable cleanup</span><input type="checkbox" id="cleanupEnabled" /></label>
+    <label><span>Gemini API key</span><input type="password" id="apiKey" placeholder="AIza…" /></label>
+    <div class="hint">Off = 100% offline. On = transcript is sent to Gemini for punctuation/filler cleanup.</div>
+  </div>
+
+  <div class="panel">
+    <h2>system</h2>
+    <label><span>Launch at login</span><input type="checkbox" id="launchAtLogin" /></label>
+    <button class="ghost" id="updates">Check for updates</button>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const status = (msg, cls) => { $("status").textContent = msg; $("status").className = cls || ""; };
+
+  async function load() {
+    const s = await window.sudovoice.getSettings();
+    $("hotkeyMode").value = s.hotkeyMode;
+    $("holdKey").value = s.holdKey;
+    $("model").value = s.model;
+    $("language").value = s.language;
+    $("cleanupEnabled").checked = s.cleanup.enabled;
+    $("apiKey").value = s.cleanup.apiKey;
+    $("launchAtLogin").checked = s.launchAtLogin;
+    $("version").textContent = "v" + (await window.sudovoice.appVersion());
+    refreshStatus();
+  }
+
+  async function refreshStatus() {
+    const st = await window.sudovoice.whisperStatus();
+    status(
+      st.binaryInstalled && st.modelInstalled
+        ? `engine + ${st.model} model installed — ready`
+        : `not installed yet — click download (${st.modelSizeMB} MB, one time)`,
+      st.binaryInstalled && st.modelInstalled ? "ok" : "warn"
+    );
+  }
+
+  const save = (patch) => window.sudovoice.setSettings(patch);
+  $("hotkeyMode").onchange = (e) => save({ hotkeyMode: e.target.value });
+  $("holdKey").onchange = (e) => save({ holdKey: e.target.value, hotkeyMode: "hold" });
+  $("model").onchange = async (e) => { await save({ model: e.target.value }); refreshStatus(); };
+  $("language").onchange = (e) => save({ language: e.target.value });
+  $("cleanupEnabled").onchange = (e) => save({ cleanup: { enabled: e.target.checked } });
+  $("apiKey").onchange = (e) => save({ cleanup: { apiKey: e.target.value.trim() } });
+  $("launchAtLogin").onchange = (e) => save({ launchAtLogin: e.target.checked });
+
+  $("download").onclick = async () => {
+    $("download").disabled = true;
+    try { await window.sudovoice.whisperDownload(); await refreshStatus(); }
+    catch (err) { status("download failed: " + err.message, "warn"); }
+    $("download").disabled = false;
+  };
+  window.sudovoice.onSetupProgress((m) => status(m, "warn"));
+
+  $("updates").onclick = async () => {
+    const r = await window.sudovoice.checkUpdates();
+    status(r.updateAvailable ? `update available: v${r.latest}` : `up to date (v${r.current})`, "ok");
+  };
+
+  load();
+</script>
+</body>
+</html>

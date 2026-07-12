@@ -17,7 +17,7 @@ permissions:
 jobs:
   macos:
     name: Build macOS
-    runs-on: macos-14
+    runs-on: macos-15 # Xcode 16 / Swift 6 — required by WhisperKit's dependency tree
     outputs:
       version: ${{ steps.pkg.outputs.version }}
       sha256: ${{ steps.pkg.outputs.sha256 }}
@@ -63,6 +63,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.5"
+      - name: Fetch sherpa-onnx AAR
+        run: bash scripts/fetch-sherpa.sh
+
       # Debug-signed for now (installable via sideload). Swap to a release
       # keystore secret (ANDROID_KEYSTORE_*) before Play Store submission.
       - name: Build APK

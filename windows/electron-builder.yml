@@ -1,0 +1,25 @@
+appId: com.sudovoice.app
+productName: SudoVoice
+copyright: © 2026 AiwithVishal — AGPL-3.0
+artifactName: SudoVoice-Setup.${ext}
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - src/**/*
+  - package.json
+
+asarUnpack:
+  - "**/node_modules/uiohook-napi/**"
+
+win:
+  target: nsis
+  icon: build/icon.png
+
+nsis:
+  oneClick: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
