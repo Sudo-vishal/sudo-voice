@@ -209,7 +209,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 // Free tier usage bar
                 LinearProgressIndicator(
-                    progress = { (minutesUsed / FreeTierLimits.MINUTES_PER_DAY).toFloat().coerceIn(0f, 1f) },
+                    progress = (minutesUsed / FreeTierLimits.MINUTES_PER_DAY).toFloat().coerceIn(0f, 1f),
                     modifier = Modifier.fillMaxWidth(),
                     color = if (AppState.isFreeTierExhausted) Color.Red else MaterialTheme.colorScheme.primary
                 )

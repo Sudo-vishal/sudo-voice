@@ -60,7 +60,8 @@ class WhisperService(private val context: Context) {
             decodingMethod = "greedy_search"
         )
 
-        recognizer = OfflineRecognizer(config)
+        // Named arg required: first positional param is assetManager (for APK-bundled models)
+        recognizer = OfflineRecognizer(config = config)
         currentModel = model
         Log.i(TAG, "Model loaded: ${model.modelName}")
     }
