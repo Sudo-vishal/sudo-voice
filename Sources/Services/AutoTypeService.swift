@@ -54,6 +54,63 @@ final class AutoTypeService {
         }
     }
 
+    // MARK: - Paste Text (Clipboard + Cmd+V)
+
+    /// Paste text at the current cursor position via clipboard + Cmd+V.
+    /// Multi-line text must never be typed: a Return keystroke SENDS the message
+    /// mid-list in WhatsApp/Slack/Teams. Restores the user's clipboard afterwards.
+    func pasteText(_ text: String) {
+        guard AXIsProcessTrusted() else {
+            // Without Accessibility, CGEvent key posting is blocked — same fallback
+            // as typeText: leave the text on the clipboard so manual Cmd+V works.
+            logToFile("pasteText — no accessibility, text left on clipboard for manual Cmd+V: \"\(text)\"")
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+            return
+        }
+
+        logToFile("pasteText (Cmd+V): \"\(text)\"")
+        let pasteboard = NSPasteboard.general
+        let previous = pasteboard.string(forType: .string)
+
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        let source = CGEventSource(stateID: .hidSystemState)
+        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
+           let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
+            keyDown.flags = .maskCommand  // Cmd+V
+            keyUp.flags = .maskCommand
+            keyDown.post(tap: .cgAnnotatedSessionEventTap)
+            keyUp.post(tap: .cgAnnotatedSessionEventTap)
+        }
+
+        // The receiving app reads the clipboard asynchronously — restoring too early
+        // wipes the text mid-paste and the user gets nothing (see typeText comment).
+        // 600ms is the margin that made this reliable. Do not shorten it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            if let previous {
+                pasteboard.setString(previous, forType: .string)
+            }
+            logToFile("pasteText — clipboard restored")
+        }
+    }
+
+    // MARK: - Deliver (routing)
+
+    /// Single output entry point. Multi-line → paste (safe in chat apps),
+    /// single-line → instant char-by-char typing.
+    func deliver(_ text: String) {
+        if text.contains("\n") {
+            pasteText(text)
+        } else {
+            typeText(text)
+        }
+    }
+
     // MARK: - Delete Text (Backspace via CGEvent)
 
     /// Delete N characters by sending DELETE key events

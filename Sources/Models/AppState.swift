@@ -1198,17 +1198,17 @@ final class AppState {
             accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
 
             if partialTyped.isEmpty {
-                autoTypeService?.typeText(textToType)
+                autoTypeService?.deliver(textToType)
             } else if outputText == partialTyped {
                 // Streamed text already matches — just close with the space
                 autoTypeService?.typeText(" ")
             } else if outputText.hasPrefix(partialTyped) {
                 // Final extends the streamed prefix — type only the tail
-                autoTypeService?.typeText(String(outputText.dropFirst(partialTyped.count)) + " ")
+                autoTypeService?.deliver(String(outputText.dropFirst(partialTyped.count)) + " ")
             } else {
                 // Punctuation/summary pass changed the text — replace in place
                 autoTypeService?.deleteCharacters(partialTyped.count)
-                autoTypeService?.typeText(textToType)
+                autoTypeService?.deliver(textToType)
             }
 
             recentOutputLengths.append(textToType.count)
@@ -1555,7 +1555,7 @@ final class AppState {
                 // Auto-type + FEATURE 5: track char count
                 if autoTypeEnabled {
                     let textToType = outputText + " "
-                    autoTypeService?.typeText(textToType)
+                    autoTypeService?.deliver(textToType)
                     recentOutputLengths.append(textToType.count)
                     sessionTotalChars += textToType.count
                     if recentOutputLengths.count > 20 {
@@ -1599,7 +1599,7 @@ final class AppState {
                     if self.autoTypeEnabled && AutoTypeService.isAccessibilityGranted() {
                         let newTyped = finalCleaned + " "
                         self.autoTypeService?.deleteCharacters(capturedTyped.count)
-                        self.autoTypeService?.typeText(newTyped)
+                        self.autoTypeService?.deliver(newTyped)
                         if let last = self.recentOutputLengths.popLast() {
                             self.sessionTotalChars -= last
                         }
