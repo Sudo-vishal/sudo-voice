@@ -130,6 +130,23 @@ private struct GeneralTab: View {
                     Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
                 }
 
+                GroupBox("Transcription") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Cloud transcription (real-time streaming)", isOn: $state.useCloudTranscription)
+
+                        Text("Words appear while you speak, via Google Gemini with your API key. Off = 100% on-device, audio never leaves your Mac.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if appState.geminiApiKey.isEmpty && appState.openRouterApiKey.isEmpty {
+                            Label("Add a Gemini API key in AI Cleanup tab first", systemImage: "exclamationmark.triangle")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 GroupBox("Push-to-Talk") {
                     VStack(alignment: .leading, spacing: 6) {
                         Picker("Hold to record:", selection: $state.pttKey) {
