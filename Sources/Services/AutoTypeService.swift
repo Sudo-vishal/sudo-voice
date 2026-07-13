@@ -113,19 +113,29 @@ final class AutoTypeService {
 
     // MARK: - Delete Text (Backspace via CGEvent)
 
+    /// Deletes above this count are paced — below it, chunk-patch feel is unchanged.
+    private static let bulkDeleteThreshold = 30
+
     /// Delete N characters by sending DELETE key events
     func deleteCharacters(_ count: Int) {
         guard AXIsProcessTrusted(), count > 0 else { return }
-        logToFile("deleteCharacters: \(count)")
         let source = CGEventSource(stateID: .hidSystemState)
 
-        for _ in 0..<count {
+        // A 99-char erase at 2ms spacing outran the target app: ~3 backspaces were
+        // dropped and left "NeeNeed" in the document. Bulk erases (session polish)
+        // get wider spacing plus periodic breathing room; small chunk patches don't.
+        let isBulk = count > Self.bulkDeleteThreshold
+        let spacing: UInt32 = isBulk ? 6_000 : 2_000
+        logToFile(isBulk ? "deleteCharacters: \(count) (bulk paced)" : "deleteCharacters: \(count)")
+
+        for i in 0..<count {
             if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: true),
                let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: false) {
                 keyDown.post(tap: .cgAnnotatedSessionEventTap)
                 keyUp.post(tap: .cgAnnotatedSessionEventTap)
-                usleep(2_000)  // 2ms between deletes
+                usleep(spacing)
             }
+            if isBulk && (i + 1) % 25 == 0 { usleep(40_000) }
         }
     }
 

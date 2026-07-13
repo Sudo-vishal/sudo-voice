@@ -880,7 +880,7 @@ final class AppState {
            !useCloudTranscription || (geminiApiKey.isEmpty && openRouterApiKey.isEmpty) {
             // Only process remaining chunk for local mode (no live service)
             Task {
-                await processChunk(remaining)
+                await processChunk(remaining, isFinalChunk: true)
                 await runSessionPolish()
             }
         } else {
@@ -977,6 +977,23 @@ final class AppState {
         if new.contains("\n") { sessionBufferDirty = true }
     }
 
+    /// Above this, a backspace-based erase of the whole session is not reliable enough
+    /// to risk the user's text on.
+    private static let maxPolishErase = 600
+
+    /// Would the polish actually fire for this session? Used by the trailing chunk to
+    /// skip its own deferred cleanup round-trip — the polish runs the FULL cleanup
+    /// prompt (fillers included) over the whole dictation moments later, so a second
+    /// call for the last chunk is pure dead air.
+    @MainActor
+    private func sessionPolishWillRun(appending text: String) -> Bool {
+        guard smartListsEnabled, llmCleanupEnabled, autoTypeEnabled, !sessionBufferDirty else { return false }
+        let projected = sessionTypedText + text
+        guard projected.count >= 20, projected.count <= Self.maxPolishErase else { return false }
+        guard allAPIKeys().values.contains(where: { !$0.isEmpty }) else { return false }
+        return looksLikeEnumeration(projected)
+    }
+
     /// Cheap local gate: no LLM call at all unless the session sounds like an enumeration.
     private static let enumerationRegex = try? NSRegularExpression(
         pattern: #"\b(first|firstly|second|secondly|third|thirdly|fourth|fifth|pehla|pehle|doosra|dusra|teesra|number\s+(one|two|three)|point\s+(one|two|three))\b|\b1[.,)]\s"#,
@@ -1002,6 +1019,7 @@ final class AppState {
     @MainActor
     private func runSessionPolish() async {
         let typed = sessionTypedText
+        let startedAt = Date()
         defer {
             sessionTypedText = ""
             sessionBufferDirty = false
@@ -1013,6 +1031,12 @@ final class AppState {
             return
         }
         guard typed.count >= 20, AutoTypeService.isAccessibilityGranted() else { return }
+        // Erasing hundreds of characters by backspace is not reliable enough to bet the
+        // user's text on — long dictations keep what they have.
+        guard typed.count <= Self.maxPolishErase else {
+            logToFile("SESSION-POLISH: skipped — session too long to erase reliably (\(typed.count) chars)")
+            return
+        }
 
         guard looksLikeEnumeration(typed) else {
             logToFile("SESSION-POLISH: heuristic=miss — no LLM call")
@@ -1025,6 +1049,7 @@ final class AppState {
             logToFile("SESSION-POLISH: no LLM key — skipped")
             return
         }
+        let llmStartedAt = Date()
 
         let result = await llmCleanupService?.cleanWithProvider(
             typed.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1062,7 +1087,10 @@ final class AppState {
         autoTypeService?.deliver(replacement)
         recentOutputLengths = [replacement.count]
         sessionTotalChars = replacement.count
+        let llmMs = Int(llmStartedAt.timeIntervalSinceNow * -1000)
+        let totalMs = Int(startedAt.timeIntervalSinceNow * -1000)
         logToFile("SESSION-POLISH: reformatted \(typed.count)→\(replacement.count) chars")
+        logToFile("SESSION-POLISH: total \(totalMs)ms (llm \(llmMs)ms)")
     }
 
     /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
@@ -1353,7 +1381,7 @@ final class AppState {
 
     // MARK: - Batch Transcription Pipeline
 
-    func processChunk(_ samples: [Float]) async {
+    func processChunk(_ samples: [Float], isFinalChunk: Bool = false) async {
         resetDailyUsageIfNeeded()
 
         if isFreeTierExhausted {
@@ -1581,9 +1609,21 @@ final class AppState {
                 let wordCount = trimmed.split(separator: " ").count
                 logToFile("LLM gate: enabled=\(llmCleanupEnabled) hasKey=\(hasAnyLLMKey) canUse=\(canUseLLMCleanup) words=\(wordCount) cleanups=\(llmCleanupsToday) (deferred)")
                 if llmCleanupEnabled && hasAnyLLMKey && canUseLLMCleanup && wordCount >= 3 {
-                    llmCleanupsToday += 1
-                    llmCleanupRanThisChunk = true
-                    deferCleanup = true
+                    // The session polish about to run covers this chunk's cleanup too —
+                    // firing a deferred call here would just add a serial round-trip.
+                    var polishCovers = false
+                    if isFinalChunk {
+                        polishCovers = await MainActor.run {
+                            sessionPolishWillRun(appending: trimmed + " ")
+                        }
+                    }
+                    if polishCovers {
+                        logToFile("Final chunk: deferred cleanup skipped — session polish covers it")
+                    } else {
+                        llmCleanupsToday += 1
+                        llmCleanupRanThisChunk = true
+                        deferCleanup = true
+                    }
                 }
             }
             // (.summary mode: the summarize call below handles quality itself —
