@@ -105,6 +105,17 @@ final class AppState {
     // Permission health (client-ready pass) — drives visible warnings instead of silent failures
     var micPermissionLost = false
     var accessibilityFallbackActive = false
+    /// Gemini Live failed and we silently dropped to REST chunking. Surfaced in statusText.
+    var liveFallbackActive = false
+
+    /// Strip `key=<secret>` out of anything headed for the log (URLError prints the URL).
+    static func maskingKeys(in text: String) -> String {
+        text.replacingOccurrences(
+            of: "key=[A-Za-z0-9_\\-]+",
+            with: "key=****",
+            options: .regularExpression
+        )
+    }
 
     // Transcription
     var lastTranscription = ""
@@ -473,6 +484,7 @@ final class AppState {
         if isModelDownloading { return "Downloading model (\(Int(modelDownloadProgress * 100))%)..." }
         if useCloudTranscription {
             if geminiApiKey.isEmpty && openRouterApiKey.isEmpty { return "Set API key in Settings" }
+            if liveFallbackActive && isRecording { return "Cloud: fallback mode (no streaming)" }
             if isRecording { return "Streaming (Cloud)..." }
             if isProcessing { return "Transcribing..." }
             if let hotkey = hotkeyService?.displayString {
@@ -775,6 +787,7 @@ final class AppState {
         sessionTotalChars = 0
         sessionTypedText = ""
         sessionBufferDirty = false
+        liveFallbackActive = false
 
         let isCloudMode = useCloudTranscription && hasCloudKey
 
@@ -818,12 +831,17 @@ final class AppState {
                     }
 
                     logToFile("Gemini Live streaming active")
+                    await MainActor.run { liveFallbackActive = false }
                 } catch {
-                    logToFile("Gemini Live connect failed: \(error) — falling back to REST")
+                    // URLError embeds the failing URL — which carries ?key=<apiKey>.
+                    logToFile("Gemini Live connect failed: \(Self.maskingKeys(in: "\(error)")) — falling back to REST")
                     // Fallback: disable streaming, use normal chunk-based REST
                     await MainActor.run {
                         audioService?.onAudioStream = nil
                         liveTranscriptionService = nil
+                        // Surface it: a silent downgrade to REST spent a whole day
+                        // masquerading as streaming.
+                        liveFallbackActive = true
                     }
                 }
             }

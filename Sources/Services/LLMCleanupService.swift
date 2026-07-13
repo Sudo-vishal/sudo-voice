@@ -331,11 +331,22 @@ final class LLMCleanupService {
 
     // MARK: - Private
 
+    /// The polish only runs after a local heuristic ALREADY found an enumeration, so rule 7's
+    /// "if unsure, do not make a list" hedge is counter-productive there — it returned prose
+    /// on a clearly enumerated dictation. Tell the model the detection is already done.
+    private let listsPreDetected = """
+
+        THIS TEXT CONTAINS AN ENUMERATION (pre-detected). Format the enumerated items \
+        as a "- " list. Keep any intro sentence as prose ending with ":". Only decline \
+        if there are genuinely no enumerable items.
+        """
+
     private func buildSystemPrompt(customInstructions: String, formatLists: Bool = false) -> String {
         // Both gates must be on: the caller must be the session-level pass AND the
         // user must have Smart lists enabled.
         let smartLists = formatLists && (UserDefaults.standard.object(forKey: "smartListsEnabled") as? Bool ?? true)
-        let base = smartLists ? baseSystemPrompt + "\n" + smartListsRule : baseSystemPrompt
+        let base = smartLists ? baseSystemPrompt + "\n" + smartListsRule + "\n" + listsPreDetected
+                              : baseSystemPrompt
 
         let trimmed = customInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return base }
