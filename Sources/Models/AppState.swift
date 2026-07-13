@@ -192,6 +192,12 @@ final class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "llmCleanupEnabled") }
     }
 
+    /// Read by LLMCleanupService directly — a no-op when llmCleanupEnabled is off.
+    var smartListsEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "smartListsEnabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "smartListsEnabled") }
+    }
+
     /// What gets pasted: raw / clean / summary. Default = .clean (no migration friction).
     var outputMode: OutputMode {
         get { OutputMode(rawValue: UserDefaults.standard.string(forKey: "outputMode") ?? "clean") ?? .clean }

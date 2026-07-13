@@ -161,6 +161,30 @@ final class LLMCleanupService {
         Output: Okay great, I think now you can hear me, right?
         """
 
+    /// Appended to the base prompt only when "Smart lists" is on (UserDefaults `smartListsEnabled`).
+    /// Deliberately conservative — a false-positive list is worse than a missed one.
+    private let smartListsRule = """
+
+        ADDITIONAL RULE:
+        6. SMART LISTS: If (and ONLY if) the speaker clearly enumerates items — spoken \
+           markers like "first / second / third", "one, two, three", "point one", \
+           "number one", or a run of 3+ parallel items ("A, B, C, and D") — format \
+           that enumeration as a list: each item on its own line, prefixed "- " \
+           (or "1. " "2. " if the speaker used numbers). Text before and after the \
+           enumeration stays as normal prose. If unsure, DO NOT make a list.
+
+        ADDITIONAL NEVER:
+        - Do NOT turn ordinary prose into a list — lists ONLY on clear spoken enumeration
+
+        Example:
+        Input: <text>so I use a few apps daily like the calling app the mail the WhatsApp and Pomodoro</text>
+        Output: So I use a few apps daily:
+        - the calling app
+        - the mail
+        - WhatsApp
+        - Pomodoro
+        """
+
     // MARK: - Public API
 
     /// Clean transcription using selected provider with automatic failover
@@ -246,9 +270,12 @@ final class LLMCleanupService {
     // MARK: - Private
 
     private func buildSystemPrompt(customInstructions: String) -> String {
+        let smartLists = UserDefaults.standard.object(forKey: "smartListsEnabled") as? Bool ?? true
+        let base = smartLists ? baseSystemPrompt + "\n" + smartListsRule : baseSystemPrompt
+
         let trimmed = customInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return baseSystemPrompt }
-        return baseSystemPrompt + "\n\nAdditional style/tone instructions from the user: \(trimmed)"
+        if trimmed.isEmpty { return base }
+        return base + "\n\nAdditional style/tone instructions from the user: \(trimmed)"
     }
 
     private func buildSummarizeSystemPrompt(language: String?, customInstructions: String) -> String {

@@ -237,6 +237,12 @@ private struct LLMTab: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Enable LLM text cleanup", isOn: $state.llmCleanupEnabled)
 
+                        Toggle("Smart lists", isOn: $state.smartListsEnabled)
+                        Text("Format spoken lists as bullet points (needs AI cleanup on)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
+
                         Picker("Provider", selection: $state.selectedLLMProvider) {
                             ForEach(LLMProvider.allCases) { provider in
                                 Text("\(provider.displayName) · \(provider.modelName) · \(provider.latencyEstimate)")
