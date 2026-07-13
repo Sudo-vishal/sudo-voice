@@ -66,12 +66,25 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
         // (~800ms+) end-of-speech detection — the main source of "dead air"
         // after finishing a sentence. HIGH sensitivity + 500ms silence window
         // cuts turn-close latency roughly in half without clipping speech.
+        // WS 1007 root cause (fixed 2026-07-13): the server rejected the setup frame with
+        // "The requested combination of response modalities (TEXT) is not supported by the
+        // model." NO Live model supports TEXT output — verified against every model this
+        // key can reach:
+        //   curl "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY" \
+        //     | jq '.models[] | select(.supportedGenerationMethods[]? == "bidiGenerateContent") | .name'
+        //   → native-audio-latest, native-audio-preview-09/12-2025, 3.1-flash-live-preview,
+        //     3.5-live-translate-preview. All four reject TEXT; all four accept AUDIO.
+        // The transcript we actually want is the USER's speech, which the Live API returns
+        // via inputAudioTranscription. The model's own AUDIO response is generated and
+        // discarded (there is no "no response" modality).
+        // Model: the "-latest" alias, so a dated preview being retired can't break us again.
         let setup: [String: Any] = [
             "setup": [
-                "model": "models/gemini-2.5-flash-native-audio-preview-12-2025",
+                "model": "models/gemini-2.5-flash-native-audio-latest",
                 "generationConfig": [
-                    "responseModalities": ["TEXT"]
+                    "responseModalities": ["AUDIO"]
                 ],
+                "inputAudioTranscription": [:],
                 "systemInstruction": [
                     "parts": [["text": systemPrompt]]
                 ],
@@ -170,21 +183,15 @@ final class GeminiLiveTranscriptionService: NSObject, URLSessionWebSocketDelegat
 
         guard let serverContent = json["serverContent"] as? [String: Any] else { return }
 
-        // Accumulate text from model turn
-        if let modelTurn = serverContent["modelTurn"] as? [String: Any],
-           let parts = modelTurn["parts"] as? [[String: Any]] {
-            var appended = false
-            for part in parts {
-                if let partText = part["text"] as? String, !partText.isEmpty {
-                    turnBuffer += partText
-                    appended = true
-                }
-            }
+        // The user's speech comes back as inputTranscription (streamed incrementally while
+        // they talk), NOT as modelTurn — modelTurn now carries the model's own AUDIO reply,
+        // which we deliberately ignore. See the setup frame for why AUDIO is mandatory.
+        if let inputTranscription = serverContent["inputTranscription"] as? [String: Any],
+           let partText = inputTranscription["text"] as? String, !partText.isEmpty {
+            turnBuffer += partText
             // Surface the partial immediately — text can start appearing at the
             // cursor while the user is still mid-sentence.
-            if appended {
-                onPartial?(turnBuffer)
-            }
+            onPartial?(turnBuffer)
         }
 
         // Turn complete — emit accumulated text
