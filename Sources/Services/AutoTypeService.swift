@@ -54,6 +54,132 @@ final class AutoTypeService {
         }
     }
 
+    // MARK: - Accessibility Read-back
+
+    /// The focused UI element. The system-wide route returns kAXErrorCannotComplete in
+    /// some contexts even when a text area IS focused (verified against TextEdit), so fall
+    /// back to querying the frontmost application directly — that route works.
+    private func focusedElement() -> AXUIElement? {
+        var systemRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(),
+                                         kAXFocusedUIElementAttribute as CFString, &systemRef) == .success,
+           let focused = systemRef, CFGetTypeID(focused) == AXUIElementGetTypeID() {
+            return (focused as! AXUIElement)
+        }
+
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+        var appRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid),
+                                            kAXFocusedUIElementAttribute as CFString, &appRef) == .success,
+              let focused = appRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return (focused as! AXUIElement)
+    }
+
+    /// Text of the focused element plus the caret offset (UTF-16), or nil when the app
+    /// exposes no AX text: web views, Electron, secure fields.
+    func focusedTextSnapshot() -> (text: String, caret: Int?)? {
+        guard AXIsProcessTrusted(), let element = focusedElement() else { return nil }
+
+        var valueRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+              let text = valueRef as? String else { return nil }
+
+        var caret: Int?
+        var rangeRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+           let rangeValue = rangeRef,
+           CFGetTypeID(rangeValue) == AXValueGetTypeID() {
+            var range = CFRange()
+            if AXValueGetValue(rangeValue as! AXValue, .cfRange, &range) {
+                caret = range.location
+            }
+        }
+        return (text, caret)
+    }
+
+    /// Everything before the caret. Falls back to the whole value when the app exposes
+    /// no selection range.
+    private func headBeforeCaret(_ snapshot: (text: String, caret: Int?)) -> String {
+        guard let caret = snapshot.caret,
+              caret >= 0, caret <= snapshot.text.utf16.count,
+              let index = String.Index(String.UTF16View.Index(utf16Offset: caret, in: snapshot.text),
+                                       within: snapshot.text) else {
+            return snapshot.text
+        }
+        return String(snapshot.text[..<index])
+    }
+
+    /// Erase `count` characters and CONFIRM through AX that they are gone.
+    /// Blind counting has twice left exactly 3 characters behind on a fully-counted,
+    /// fully-paced erase ("NeeNeed three things") — the count model is wrong in some way
+    /// we cannot see from this side, so the polish path verifies instead of assuming.
+    /// Returns false only when the erase could not be confirmed clean; the caller must
+    /// then NOT paste (leaving unformatted text beats corrupting the document).
+    func verifiedErase(_ count: Int, expectedSuffix: String) -> Bool {
+        guard AXIsProcessTrusted(), count > 0 else { return false }
+
+        // Establish where the text should end up. If AX can't see the text we just typed,
+        // fall back to today's blind behavior — no regression, best effort.
+        guard let before = focusedTextSnapshot() else {
+            logToFile("verifiedErase: no AX text in focused element — blind erase")
+            deleteCharacters(count)
+            return true
+        }
+        let beforeHead = headBeforeCaret(before)
+        guard beforeHead.hasSuffix(expectedSuffix) else {
+            logToFile("verifiedErase: AX text does not end with what we typed — blind erase")
+            deleteCharacters(count)
+            return true
+        }
+        let targetHead = String(beforeHead.dropLast(expectedSuffix.count))
+
+        deleteCharacters(count)
+
+        // Two correction rounds max.
+        for round in 1...3 {
+            usleep(80_000)  // let the target app apply the backspaces
+            guard let after = focusedTextSnapshot() else {
+                logToFile("verifiedErase: AX read-back lost after delete — assuming clean")
+                return true
+            }
+            let afterHead = headBeforeCaret(after)
+
+            guard afterHead.hasPrefix(targetHead) else {
+                logToFile("verifiedErase: text diverged from target (app mutated it?) — aborting")
+                logSnapshotTails(before: beforeHead, after: afterHead)
+                return false
+            }
+            let residual = afterHead.count - targetHead.count
+
+            if residual == 0 {
+                logToFile(round == 1 ? "verifiedErase: clean on first pass"
+                                     : "verifiedErase: clean after \(round - 1) correction round(s)")
+                return true
+            }
+            if round == 3 {
+                logToFile("verifiedErase: \(residual) residual after 2 correction rounds — aborting")
+                logSnapshotTails(before: beforeHead, after: afterHead)
+                return false
+            }
+
+            logToFile("verifiedErase: \(count) requested, \(residual) residual, correcting (round \(round))")
+            logSnapshotTails(before: beforeHead, after: afterHead)
+            deleteCharacters(residual)
+        }
+        return false
+    }
+
+    /// Instrumentation for the still-unexplained residue: exactly which characters did the
+    /// target refuse to delete, and did anything mutate the text behind our back?
+    private func logSnapshotTails(before: String, after: String) {
+        func tail(_ s: String) -> String {
+            String(s.suffix(12))
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\t", with: "\\t")
+        }
+        logToFile("verifiedErase: tail before=\"\(tail(before))\" after=\"\(tail(after))\"")
+    }
+
     // MARK: - Paste Text (Clipboard + Cmd+V)
 
     /// Paste text at the current cursor position via clipboard + Cmd+V.

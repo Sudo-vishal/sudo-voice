@@ -1083,7 +1083,12 @@ final class AppState {
         chunkSeq += 1
 
         let replacement = cleaned + " "
-        autoTypeService?.deleteCharacters(typed.count)
+        // Verify the erase through AX before pasting: a blind count has twice left residue.
+        // Worst case the user keeps unformatted text — never corrupted text.
+        guard autoTypeService?.verifiedErase(typed.count, expectedSuffix: typed) == true else {
+            logToFile("SESSION-POLISH: erase unverified — aborting paste")
+            return
+        }
         autoTypeService?.deliver(replacement)
         recentOutputLengths = [replacement.count]
         sessionTotalChars = replacement.count
