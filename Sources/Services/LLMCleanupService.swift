@@ -153,6 +153,7 @@ final class LLMCleanupService {
 
         NEVER:
         - Do NOT completely rephrase or restructure sentences
+        - Do NOT complete, guess, or invent words the speaker didn't finish — leave trailing fragments as-is
         - Do NOT summarize or shorten
         - Do NOT translate between languages or scripts — ever
         - Do NOT respond conversationally — you are NOT a chatbot
@@ -210,8 +211,9 @@ final class LLMCleanupService {
         // Try selected provider first
         if let key = apiKeys[provider], !key.isEmpty {
             let config = LLMProviderConfig.config(for: provider)
-            if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: provider.rawValue, maxTokens: maxTokens) {
-                return result
+            if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: provider.rawValue, maxTokens: maxTokens),
+               let valid = validate(result, input: rawText, formatLists: formatLists) {
+                return valid
             }
             logToFile("Primary provider \(provider.rawValue) failed — trying failover")
         }
@@ -221,14 +223,63 @@ final class LLMCleanupService {
         for fallback in failoverOrder where fallback != provider {
             if let key = apiKeys[fallback], !key.isEmpty {
                 let config = LLMProviderConfig.config(for: fallback)
-                if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: fallback.rawValue, maxTokens: maxTokens) {
+                if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: fallback.rawValue, maxTokens: maxTokens),
+                   let valid = validate(result, input: rawText, formatLists: formatLists) {
                     logToFile("Failover to \(fallback.rawValue) succeeded")
-                    return result
+                    return valid
                 }
             }
         }
 
         return rawText
+    }
+
+    // MARK: - Output Validation
+
+    /// Last line of defence before text reaches the user's document. A single bad
+    /// response once pasted the model's own reasoning into the doc (2026-07-13):
+    /// nothing checked it. Returns nil to REJECT — the caller then treats it as a
+    /// provider failure, so the existing failover / raw-text fallback handles it.
+    func validate(_ result: String, input: String, formatLists: Bool) -> String? {
+        // Empty is the [SKIP] signal, not an output.
+        if result.isEmpty { return result }
+
+        // Per-chunk cleanup can never legitimately emit a newline — lists have been
+        // session-level since IW-A2. This one check would have stopped the incident.
+        if !formatLists && result.contains("\n") {
+            return reject(result, reason: "newline in chunk mode")
+        }
+
+        let lowerResult = result.lowercased()
+        let lowerInput = input.lowercased()
+
+        // The model narrating instead of cleaning. Only count a marker the model ADDED —
+        // the speaker may legitimately have dictated these words themselves.
+        let markers = ["→", "corrected output", "corrected version", "<text>", "input:", "output:"]
+        for marker in markers where lowerResult.contains(marker) && !lowerInput.contains(marker) {
+            return reject(result, reason: "meta marker '\(marker)'")
+        }
+        // "here is the file" is ordinary speech mid-sentence; only a leading one is a preface.
+        for preface in ["here is", "here's the"] where lowerResult.hasPrefix(preface) && !lowerInput.hasPrefix(preface) {
+            return reject(result, reason: "chatbot preface '\(preface)'")
+        }
+
+        // Cleanup shortens or lightly punctuates. It never doubles short text.
+        if result.count > max(Int(Double(input.count) * 2.0), input.count + 40) {
+            return reject(result, reason: "length blow-up \(input.count)→\(result.count)")
+        }
+
+        // Prompt scaffolding echoed back.
+        if result.contains("RULES:") || result.contains("NEVER:") {
+            return reject(result, reason: "prompt scaffolding echoed")
+        }
+
+        return result
+    }
+
+    private func reject(_ result: String, reason: String) -> String? {
+        logToFile("LLM output rejected (\(reason)): \"\(result.prefix(80))\"")
+        return nil
     }
 
     /// Backward-compatible: Groq first, OpenRouter fallback
