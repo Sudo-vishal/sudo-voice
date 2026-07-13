@@ -134,6 +134,15 @@ final class AppState {
     private var pttCancelOnNextStop = false
     var sessionTotalChars: Int = 0
 
+    /// Everything this session has typed at the cursor, in order. The end-of-session
+    /// list-format pass erases exactly this and repastes the formatted version, so it
+    /// MUST stay a byte-accurate mirror of what's on screen.
+    private var sessionTypedText: String = ""
+    /// Set whenever the typed text is mutated in a way the buffer cannot account for
+    /// (voice commands, multi-line already pasted mid-session). Once dirty, the polish
+    /// pass is skipped for the whole session — never erase text you can't account for.
+    private var sessionBufferDirty = false
+
     // Settings (persisted via UserDefaults)
     var selectedModel: WhisperModelSize {
         get {
@@ -764,6 +773,8 @@ final class AppState {
         // Reset scratch-that tracking for new session
         recentOutputLengths.removeAll()
         sessionTotalChars = 0
+        sessionTypedText = ""
+        sessionBufferDirty = false
 
         let isCloudMode = useCloudTranscription && hasCloudKey
 
@@ -862,13 +873,18 @@ final class AppState {
             return
         }
 
-        if let remaining = remaining {
+        // The trailing chunk is transcribed and typed ASYNCHRONOUSLY after stop — the
+        // list polish must run after it lands, or it would reformat a session that is
+        // still missing its final item.
+        if let remaining = remaining,
+           !useCloudTranscription || (geminiApiKey.isEmpty && openRouterApiKey.isEmpty) {
             // Only process remaining chunk for local mode (no live service)
-            if !useCloudTranscription || (geminiApiKey.isEmpty && openRouterApiKey.isEmpty) {
-                Task {
-                    await processChunk(remaining)
-                }
+            Task {
+                await processChunk(remaining)
+                await runSessionPolish()
             }
+        } else {
+            Task { await runSessionPolish() }
         }
     }
 
@@ -935,8 +951,118 @@ final class AppState {
         guard !livePartialTypedText.isEmpty else { return }
         recentOutputLengths.append(livePartialTypedText.count)
         sessionTotalChars += livePartialTypedText.count
+        sessionTypedText += livePartialTypedText
         livePartialTypedText = ""
         liveTurnStartedAt = nil
+    }
+
+    // MARK: - Session Buffer + End-of-Session List Polish
+
+    private func appendToSessionBuffer(_ text: String) {
+        // A newline mid-session means that chunk was PASTED, not typed. Erase-by-count
+        // across it is fragile, so stop trusting the buffer rather than risk eating text.
+        if text.contains("\n") { sessionBufferDirty = true }
+        sessionTypedText += text
+    }
+
+    /// Keep the buffer in step with the deferred cleanup patch, which deletes the chunk
+    /// it typed and retypes the cleaned version in place.
+    @MainActor
+    private func replaceSessionBufferTail(_ old: String, with new: String) {
+        guard sessionTypedText.hasSuffix(old) else {
+            sessionBufferDirty = true
+            return
+        }
+        sessionTypedText = String(sessionTypedText.dropLast(old.count)) + new
+        if new.contains("\n") { sessionBufferDirty = true }
+    }
+
+    /// Cheap local gate: no LLM call at all unless the session sounds like an enumeration.
+    private static let enumerationRegex = try? NSRegularExpression(
+        pattern: #"\b(first|firstly|second|secondly|third|thirdly|fourth|fifth|pehla|pehle|doosra|dusra|teesra|number\s+(one|two|three)|point\s+(one|two|three))\b|\b1[.,)]\s"#,
+        options: [.caseInsensitive]
+    )
+
+    private func looksLikeEnumeration(_ text: String) -> Bool {
+        let range = NSRange(text.startIndex..., in: text)
+        if let regex = Self.enumerationRegex,
+           regex.firstMatch(in: text, options: [], range: range) != nil {
+            return true
+        }
+        // Or a run of 3+ short comma-separated items ("the charger, the cable, the adapter").
+        let items = text.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0.count <= 40 }
+        return items.count >= 3
+    }
+
+    /// Format spoken lists ONCE, over the whole dictation, after every chunk is typed.
+    /// Per-chunk cleanup cannot do this — it sees one VAD-separated fragment at a time
+    /// and emits orphan dashes (the v2.7 bug: four chunks, four inconsistent decisions).
+    @MainActor
+    private func runSessionPolish() async {
+        let typed = sessionTypedText
+        defer {
+            sessionTypedText = ""
+            sessionBufferDirty = false
+        }
+
+        guard smartListsEnabled, llmCleanupEnabled, autoTypeEnabled else { return }
+        guard !sessionBufferDirty else {
+            logToFile("SESSION-POLISH: skipped — buffer dirty (voice command or pasted newline mid-session)")
+            return
+        }
+        guard typed.count >= 20, AutoTypeService.isAccessibilityGranted() else { return }
+
+        guard looksLikeEnumeration(typed) else {
+            logToFile("SESSION-POLISH: heuristic=miss — no LLM call")
+            return
+        }
+        logToFile("SESSION-POLISH: heuristic=hit — \(typed.count) chars")
+
+        let keys = allAPIKeys()
+        guard keys.values.contains(where: { !$0.isEmpty }) else {
+            logToFile("SESSION-POLISH: no LLM key — skipped")
+            return
+        }
+
+        let result = await llmCleanupService?.cleanWithProvider(
+            typed.trimmingCharacters(in: .whitespacesAndNewlines),
+            provider: selectedLLMProvider,
+            apiKeys: keys,
+            customInstructions: customStyleInstructions,
+            formatLists: true,
+            maxTokens: 1024
+        ) ?? ""
+
+        let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, cleaned != "[SKIP]", cleaned.contains("\n") else {
+            logToFile("SESSION-POLISH: no list in result — text left as typed")
+            return
+        }
+        // We are about to ERASE the user's text before repasting, and the model is capped
+        // at maxTokens. A result far shorter than the input is a truncated response, not a
+        // list — keep what is on screen.
+        guard cleaned.count >= Int(Double(typed.count) * 0.6) else {
+            logToFile("SESSION-POLISH: result \(cleaned.count) vs typed \(typed.count) — suspected truncation, skipped")
+            return
+        }
+        // A deferred cleanup patch may have landed while we awaited the LLM.
+        guard sessionTypedText == typed, !sessionBufferDirty else {
+            logToFile("SESSION-POLISH: typed text changed during LLM call — skipped")
+            return
+        }
+
+        // Invalidate any deferred cleanup patch still in flight: it would delete N chars
+        // off the tail of the list we are about to paste and retype its own chunk.
+        chunkSeq += 1
+
+        let replacement = cleaned + " "
+        autoTypeService?.deleteCharacters(typed.count)
+        autoTypeService?.deliver(replacement)
+        recentOutputLengths = [replacement.count]
+        sessionTotalChars = replacement.count
+        logToFile("SESSION-POLISH: reformatted \(typed.count)→\(replacement.count) chars")
     }
 
     /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
@@ -983,7 +1109,12 @@ final class AppState {
             let command = VoiceCommandService.detect(trimmed)
             // Commands act on PREVIOUS output — any partial text typed for this
             // turn must go first (rare: commands sit under the typing threshold)
-            if command != .none { eraseTypedPartial() }
+            if command != .none {
+                eraseTypedPartial()
+                // Commands mutate typed text outside the buffer's knowledge — the
+                // session polish can no longer erase exactly what it put there.
+                sessionBufferDirty = true
+            }
             switch command {
             case .scratchThat:
                 if let lastLength = recentOutputLengths.popLast() {
@@ -1213,6 +1344,7 @@ final class AppState {
 
             recentOutputLengths.append(textToType.count)
             sessionTotalChars += textToType.count
+            appendToSessionBuffer(textToType)
             if recentOutputLengths.count > 20 {
                 recentOutputLengths.removeFirst()
             }
@@ -1319,6 +1451,11 @@ final class AppState {
             // FEATURE 5: Voice command detection (BEFORE LLM cleanup)
             if scratchThatEnabled {
                 let command = VoiceCommandService.detect(trimmed)
+                // Commands mutate typed text outside the buffer's knowledge — the
+                // session polish can no longer erase exactly what it put there.
+                if command != .none {
+                    await MainActor.run { sessionBufferDirty = true }
+                }
                 switch command {
                 case .scratchThat:
                     await MainActor.run {
@@ -1558,6 +1695,7 @@ final class AppState {
                     autoTypeService?.deliver(textToType)
                     recentOutputLengths.append(textToType.count)
                     sessionTotalChars += textToType.count
+                    appendToSessionBuffer(textToType)
                     if recentOutputLengths.count > 20 {
                         recentOutputLengths.removeFirst()
                     }
@@ -1605,6 +1743,7 @@ final class AppState {
                         }
                         self.recentOutputLengths.append(newTyped.count)
                         self.sessionTotalChars += newTyped.count
+                        self.replaceSessionBufferTail(capturedTyped, with: newTyped)
                         logToFile("Cleanup patched in-place (\(capturedTyped.count)→\(newTyped.count) chars)")
                     }
                     self.lastTranscription = finalCleaned

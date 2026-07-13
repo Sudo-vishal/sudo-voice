@@ -192,19 +192,25 @@ final class LLMCleanupService {
 
     // MARK: - Public API
 
-    /// Clean transcription using selected provider with automatic failover
+    /// Clean transcription using selected provider with automatic failover.
+    /// `formatLists` is OFF for per-chunk calls on purpose: a chunk is one
+    /// VAD-separated fragment, so the model sees "second, the adapter" with no
+    /// list context and emits orphan dashes. List formatting runs once over the
+    /// whole session instead (AppState.runSessionPolish).
     func cleanWithProvider(
         _ rawText: String,
         provider: LLMProvider,
         apiKeys: [LLMProvider: String],
-        customInstructions: String = ""
+        customInstructions: String = "",
+        formatLists: Bool = false,
+        maxTokens: Int = 256
     ) async -> String {
-        let prompt = buildSystemPrompt(customInstructions: customInstructions)
+        let prompt = buildSystemPrompt(customInstructions: customInstructions, formatLists: formatLists)
 
         // Try selected provider first
         if let key = apiKeys[provider], !key.isEmpty {
             let config = LLMProviderConfig.config(for: provider)
-            if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: provider.rawValue) {
+            if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: provider.rawValue, maxTokens: maxTokens) {
                 return result
             }
             logToFile("Primary provider \(provider.rawValue) failed — trying failover")
@@ -215,7 +221,7 @@ final class LLMCleanupService {
         for fallback in failoverOrder where fallback != provider {
             if let key = apiKeys[fallback], !key.isEmpty {
                 let config = LLMProviderConfig.config(for: fallback)
-                if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: fallback.rawValue) {
+                if let result = await callProviderAPI(rawText, config: config, apiKey: key, systemPrompt: prompt, provider: fallback.rawValue, maxTokens: maxTokens) {
                     logToFile("Failover to \(fallback.rawValue) succeeded")
                     return result
                 }
@@ -274,8 +280,10 @@ final class LLMCleanupService {
 
     // MARK: - Private
 
-    private func buildSystemPrompt(customInstructions: String) -> String {
-        let smartLists = UserDefaults.standard.object(forKey: "smartListsEnabled") as? Bool ?? true
+    private func buildSystemPrompt(customInstructions: String, formatLists: Bool = false) -> String {
+        // Both gates must be on: the caller must be the session-level pass AND the
+        // user must have Smart lists enabled.
+        let smartLists = formatLists && (UserDefaults.standard.object(forKey: "smartListsEnabled") as? Bool ?? true)
         let base = smartLists ? baseSystemPrompt + "\n" + smartListsRule : baseSystemPrompt
 
         let trimmed = customInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
