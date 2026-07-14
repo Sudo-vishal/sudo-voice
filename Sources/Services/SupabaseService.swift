@@ -102,6 +102,41 @@ final class SupabaseService {
         }
     }
 
+    // MARK: - License / entitlement
+
+    /// The signed-in user's license row (backend/supabase/schema.sql: one row
+    /// per user, auto-created free by trigger; Razorpay webhook upgrades it).
+    /// RLS scopes the select to the caller — no user_id filter needed.
+    /// Returns nil when offline-only, signed out, or on error.
+    func fetchLicense() async -> LicenseRow? {
+        guard let client, await currentUser != nil else { return nil }
+        do {
+            let rows: [LicenseRow] = try await client
+                .from("licenses")
+                .select("plan, status, current_period_end")
+                .limit(1)
+                .execute()
+                .value
+            return rows.first
+        } catch {
+            logToFile("SupabaseService: fetch license failed — \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    struct LicenseRow: Decodable {
+        let plan: String
+        let status: String
+        let current_period_end: Date?
+
+        /// Pro = pro plan, active/trialing, and period not lapsed (nil = lifetime).
+        var isPro: Bool {
+            plan == "pro"
+                && (status == "active" || status == "trialing")
+                && (current_period_end.map { $0 > Date() } ?? true)
+        }
+    }
+
     // MARK: - Transcripts
 
     /// Save a transcript to Supabase. Fire-and-forget — caller should not block on this.

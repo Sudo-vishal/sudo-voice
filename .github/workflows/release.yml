@@ -111,6 +111,11 @@ jobs:
           merge-multiple: true
           path: dist
 
+      - name: Zip Chrome extension
+        run: |
+          mkdir -p dist
+          (cd extension && zip -r ../dist/SudoVoice-Chrome.zip .)
+
       - name: Compute checksums + manifests
         id: meta
         run: |
@@ -166,6 +171,7 @@ jobs:
             dist/SudoVoice.dmg
             dist/SudoVoice-Setup.exe
             dist/SudoVoice.apk
+            dist/SudoVoice-Chrome.zip
 
       - name: Commit update manifests to main
         run: |

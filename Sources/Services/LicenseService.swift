@@ -1,6 +1,9 @@
 import Foundation
 
-/// Validates Pro licenses via Lemon Squeezy API.
+/// Pro entitlement resolution, two sources:
+/// 1. Supabase account (primary) — the `licenses` row managed by the Razorpay
+///    webhook (backend/). Checked whenever the user is signed in.
+/// 2. Lemon Squeezy license key (legacy) — kept so existing key holders stay Pro.
 /// Caches result locally, re-checks every 24h, 7-day offline grace period.
 final class LicenseService {
 
@@ -19,7 +22,38 @@ final class LicenseService {
 
     // MARK: - Public API
 
-    /// Validate a license key. Returns true if Pro.
+    /// Resolve Pro from every entitlement source. This is what AppState calls
+    /// on launch: Supabase account first, then legacy Lemon Squeezy key.
+    /// Uses cache if validated within 24h, offline grace period of 7 days.
+    func resolveEntitlement(legacyKey: String) async -> Bool {
+        // Check cache first
+        if let cached = cachedResult(), !needsRevalidation() {
+            logToFile("License: using cached result (valid: \(cached))")
+            return cached
+        }
+
+        // 1. Supabase account entitlement (signed-in users).
+        if let row = await SupabaseService.shared.fetchLicense() {
+            logToFile("License: Supabase entitlement — plan=\(row.plan) status=\(row.status) pro=\(row.isPro)")
+            if row.isPro {
+                cacheResult(true)
+                return true
+            }
+            // Free account row: fall through to a legacy key if the user has one.
+        }
+
+        // 2. Legacy Lemon Squeezy key.
+        if !legacyKey.isEmpty {
+            return await validate(legacyKey)
+        }
+
+        // No entitlement source succeeded; apply offline grace on prior Pro.
+        if graceActive() { return true }
+        cacheResult(false)
+        return false
+    }
+
+    /// Validate a Lemon Squeezy license key. Returns true if Pro.
     /// Uses cache if validated within 24h, offline grace period of 7 days.
     func validate(_ key: String) async -> Bool {
         guard !key.isEmpty else { return false }
@@ -38,15 +72,19 @@ final class LicenseService {
         } catch {
             logToFile("License: online validation failed — \(error.localizedDescription)")
             // Offline grace: if previously validated, allow for 7 days
-            if let lastDate = lastValidationDate(),
-               let cached = cachedResult(),
-               cached,
-               Date().timeIntervalSince(lastDate) < Double(Keys.offlineGraceDays) * 86400 {
+            if graceActive() {
                 logToFile("License: offline grace period active (\(Keys.offlineGraceDays) days)")
                 return true
             }
             return false
         }
+    }
+
+    /// True when a previously-cached Pro result is within the offline grace window.
+    private func graceActive() -> Bool {
+        guard let lastDate = lastValidationDate(),
+              let cached = cachedResult(), cached else { return false }
+        return Date().timeIntervalSince(lastDate) < Double(Keys.offlineGraceDays) * 86400
     }
 
     /// Activate a license key on this device. Call once after purchase.

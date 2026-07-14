@@ -17,6 +17,16 @@ export default function LiveDemo() {
     if (!SpeechRecognition) {
       setSupported(false);
     }
+    // Kill the mic if the user navigates away mid-recording.
+    return () => {
+      const rec = recognitionRef.current;
+      if (rec) {
+        rec.onresult = null;
+        rec.onend = null;
+        rec.onerror = null;
+        try { rec.abort(); } catch { /* noop */ }
+      }
+    };
   }, []);
 
   const startListening = useCallback(() => {
@@ -67,7 +77,16 @@ export default function LiveDemo() {
   }, []);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    const rec = recognitionRef.current;
+    if (rec) {
+      // Detach handlers BEFORE aborting — Chrome keeps delivering queued
+      // onresult events after stop(), which made text keep appearing.
+      rec.onresult = null;
+      rec.onend = null;
+      rec.onerror = null;
+      try { rec.abort(); } catch { /* already stopped */ }
+      recognitionRef.current = null;
+    }
     setIsListening(false);
     setInterimText("");
   }, []);

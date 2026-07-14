@@ -525,11 +525,11 @@ final class AppState {
 
         await startAuthObserver()
 
-        if !licenseKey.isEmpty {
-            let valid = await licenseService?.validate(licenseKey) ?? false
-            await MainActor.run { isPro = valid }
-            logToFile("License validation: \(valid ? "Pro" : "Invalid")")
-        }
+        // Supabase account entitlement first, legacy Lemon Squeezy key second.
+        // `||` preserves dev-mode Pro when both sources say free.
+        let valid = await licenseService?.resolveEntitlement(legacyKey: licenseKey) ?? false
+        await MainActor.run { isPro = isPro || valid }
+        logToFile("License resolution: \(valid ? "Pro" : "free")")
 
         audioService?.onDeviceChanged = { [weak self] in
             guard let self, self.isRecording else { return }
@@ -632,6 +632,15 @@ final class AppState {
                     Task {
                         self.currentUser = await SupabaseService.shared.currentUser
                         logToFile("AppState: auth state changed (\(event)) — currentUser=\(self.currentUser?.email ?? "nil")")
+
+                        // Sign-in/out changes entitlement — re-resolve past the
+                        // 24h cache so Pro flips immediately after purchase.
+                        if event == .signedIn || event == .signedOut {
+                            UserDefaults.standard.removeObject(forKey: "license_lastValidation")
+                            let valid = await self.licenseService?.resolveEntitlement(legacyKey: self.licenseKey) ?? false
+                            await MainActor.run { self.isPro = valid || self.isDevMode }
+                            logToFile("AppState: entitlement re-resolved after \(event) — pro=\(valid)")
+                        }
                     }
                 }
             }
