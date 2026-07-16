@@ -156,7 +156,9 @@ struct HomeTab: View {
                                         .multilineTextAlignment(.leading)
 
                                     HStack(spacing: 8) {
-                                        Text(record.timestamp, style: .relative)
+                                        TimelineView(.periodic(from: .now, by: 30)) { context in
+                                            Text(Self.relativeTimestamp(record.timestamp, now: context.date))
+                                        }
                                         Text("•")
                                         Text("\(record.wordCount) words")
                                     }
@@ -213,5 +215,33 @@ struct HomeTab: View {
                 copiedID = nil
             }
         }
+    }
+
+    static func relativeTimestamp(
+        _ timestamp: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String {
+        let elapsed = max(0, now.timeIntervalSince(timestamp))
+        if elapsed < 60 {
+            return "just now"
+        }
+        if elapsed < 3_600 {
+            return "\(Int(elapsed / 60)) min ago"
+        }
+        if elapsed < 86_400 {
+            return "\(Int(elapsed / 3_600)) hr ago"
+        }
+        if calendar.isDateInYesterday(timestamp) {
+            return "yesterday"
+        }
+
+        let start = calendar.startOfDay(for: timestamp)
+        let end = calendar.startOfDay(for: now)
+        let days = max(2, calendar.dateComponents([.day], from: start, to: end).day ?? 2)
+        if days <= 7 {
+            return "\(days) days ago"
+        }
+        return timestamp.formatted(date: .abbreviated, time: .omitted)
     }
 }
