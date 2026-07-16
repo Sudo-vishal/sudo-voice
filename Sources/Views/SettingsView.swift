@@ -124,16 +124,21 @@ private struct GeneralTab: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Hotkey
                 GroupBox("Recording") {
-                    HStack {
-                        Text("Hotkey:")
-                        Text(appState.hotkeyService?.displayString ?? "Cmd + D")
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.quaternary)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .font(.system(.body, design: .monospaced))
-                        Spacer()
-                        HotkeyPicker(appState: appState)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Hotkey:")
+                            Text(appState.hotkeyService?.displayString ?? "Cmd + D")
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .font(.system(.body, design: .monospaced))
+                            Spacer()
+                            HotkeyPicker(appState: appState)
+                        }
+                        Text("Re-paste last dictation: ⌃⌘V")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
 

@@ -440,6 +440,18 @@ final class AppState {
         UserDefaults.standard.removeObject(forKey: "transcriptionHistory")
     }
 
+    func repasteLastDictation() {
+        guard let latest = transcriptionHistory.first else {
+            logToFile("Re-paste ignored — history is empty")
+            return
+        }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(latest.cleanedText, forType: .string)
+        autoTypeService?.pasteText(latest.cleanedText)
+        logToFile("Re-pasted last dictation (\(latest.cleanedText.count) chars)")
+    }
+
     // Computed
     var menuBarIconName: String {
         if isRecording { return "mic.fill" }
@@ -546,11 +558,18 @@ final class AppState {
             hotkeyService = HotkeyService()
             floatingIndicator = FloatingIndicatorController()
 
-            hotkeyService?.register { [weak self] in
-                Task { @MainActor in
-                    self?.toggleRecording()
+            hotkeyService?.register(
+                onToggle: { [weak self] in
+                    Task { @MainActor in
+                        self?.toggleRecording()
+                    }
+                },
+                onRepaste: { [weak self] in
+                    Task { @MainActor in
+                        self?.repasteLastDictation()
+                    }
                 }
-            }
+            )
 
             // Push-to-talk hotkey (modifier-only, hold-to-record). Coexists with Cmd+D toggle.
             hotkeyService?.registerPTT(

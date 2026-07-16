@@ -53,8 +53,18 @@ enum PTTKey: String, CaseIterable, Identifiable {
 /// Global hotkey service using Carbon API.
 /// Default: Cmd+D. Configurable via UserDefaults.
 final class HotkeyService {
+    private enum Hotkey {
+        static let signature = OSType(0x5748_5350) // "WHSP"
+        static let toggleID: UInt32 = 1
+        static let repasteID: UInt32 = 2
+        static let repasteKeyCode = UInt32(kVK_ANSI_V)
+        static let repasteModifiers = UInt32(cmdKey | controlKey)
+    }
+
     private var hotkeyRef: EventHotKeyRef?
+    private var repasteHotkeyRef: EventHotKeyRef?
     private static var onToggle: (() -> Void)?
+    private static var onRepaste: (() -> Void)?
     private static var lastFireTime: Date = .distantPast
     private static let debounceSec: TimeInterval = 0.3
 
@@ -108,8 +118,9 @@ final class HotkeyService {
         return parts.joined(separator: " + ")
     }
 
-    func register(onToggle: @escaping () -> Void) {
+    func register(onToggle: @escaping () -> Void, onRepaste: @escaping () -> Void) {
         Self.onToggle = onToggle
+        Self.onRepaste = onRepaste
 
         // Install Carbon event handler for hotkeys
         var eventType = EventTypeSpec(
@@ -120,6 +131,26 @@ final class HotkeyService {
         InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, event, _) -> OSStatus in
+                var hotkeyID = EventHotKeyID()
+                let status = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotkeyID
+                )
+                guard status == noErr, hotkeyID.signature == Hotkey.signature else {
+                    return noErr
+                }
+
+                if hotkeyID.id == Hotkey.repasteID {
+                    HotkeyService.onRepaste?()
+                    return noErr
+                }
+
+                guard hotkeyID.id == Hotkey.toggleID else { return noErr }
                 let now = Date()
                 guard now.timeIntervalSince(HotkeyService.lastFireTime) > HotkeyService.debounceSec else {
                     return noErr  // Ignore duplicate fires within 300ms
@@ -135,12 +166,14 @@ final class HotkeyService {
         )
 
         registerHotkey()
+        registerRepasteHotkey()
     }
 
     /// Re-register with current keyCode/modifiers (call after user changes hotkey)
     func reregister() {
         unregisterHotkey()
         registerHotkey()
+        registerRepasteHotkey()
     }
 
     /// Update hotkey and re-register
@@ -153,8 +186,8 @@ final class HotkeyService {
 
     private func registerHotkey() {
         let hotkeyID = EventHotKeyID(
-            signature: OSType(0x5748_5350), // "WHSP"
-            id: 1
+            signature: Hotkey.signature,
+            id: Hotkey.toggleID
         )
 
         RegisterEventHotKey(
@@ -168,10 +201,31 @@ final class HotkeyService {
         logToFile("Hotkey registered: \(displayString)")
     }
 
+    private func registerRepasteHotkey() {
+        let hotkeyID = EventHotKeyID(
+            signature: Hotkey.signature,
+            id: Hotkey.repasteID
+        )
+
+        RegisterEventHotKey(
+            Hotkey.repasteKeyCode,
+            Hotkey.repasteModifiers,
+            hotkeyID,
+            GetApplicationEventTarget(),
+            0,
+            &repasteHotkeyRef
+        )
+        logToFile("Re-paste hotkey registered: Ctrl + Cmd + V")
+    }
+
     private func unregisterHotkey() {
         if let ref = hotkeyRef {
             UnregisterEventHotKey(ref)
             hotkeyRef = nil
+        }
+        if let ref = repasteHotkeyRef {
+            UnregisterEventHotKey(ref)
+            repasteHotkeyRef = nil
         }
     }
 
@@ -179,6 +233,7 @@ final class HotkeyService {
         unregisterHotkey()
         unregisterPTT()
         Self.onToggle = nil
+        Self.onRepaste = nil
     }
 
     deinit {
