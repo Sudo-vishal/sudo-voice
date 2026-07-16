@@ -223,7 +223,6 @@ final class HotkeyService {
         logToFile(status == noErr
             ? "Re-paste hotkey registered: ⌃⇧⌘V"
             : "Re-paste hotkey registration FAILED (status \(status)) — combo may be owned by another app")
-        logToFile("Re-paste hotkey registered: Ctrl + Cmd + V")
     }
 
     private func unregisterHotkey() {
