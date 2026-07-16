@@ -1,6 +1,7 @@
 import ApplicationServices
 import AppKit
 import Foundation
+import UserNotifications
 
 final class AutoTypeService {
 
@@ -189,10 +190,11 @@ final class AutoTypeService {
         guard AXIsProcessTrusted() else {
             // Without Accessibility, CGEvent key posting is blocked — same fallback
             // as typeText: leave the text on the clipboard so manual Cmd+V works.
-            logToFile("pasteText — no accessibility, text left on clipboard for manual Cmd+V: \"\(text)\"")
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
+            logToFile("pasteText: FAILED (clipboard left for manual paste)")
+            showManualPasteNotification()
             return
         }
 
@@ -212,16 +214,76 @@ final class AutoTypeService {
             keyUp.post(tap: .cgAnnotatedSessionEventTap)
         }
 
-        // The receiving app reads the clipboard asynchronously — restoring too early
-        // wipes the text mid-paste and the user gets nothing (see typeText comment).
-        // 600ms is the margin that made this reliable. Do not shorten it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            if let previous {
-                pasteboard.setString(previous, forType: .string)
+        // Confirm through AX once the target app has had time to apply the paste.
+        // Electron/web views often expose no text at all: that is UNKNOWN, not a
+        // failure, so preserve today's clipboard-restore behavior without a toast.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self else { return }
+
+            if let after = self.focusedTextSnapshot() {
+                let pastedTail = self.headBeforeCaret(after)
+                let expectedTail = String(text.suffix(80))
+                guard !expectedTail.isEmpty, pastedTail.hasSuffix(expectedTail) else {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(text, forType: .string)
+                    logToFile("pasteText: FAILED (clipboard left for manual paste)")
+                    self.showManualPasteNotification()
+                    return
+                }
+                logToFile("pasteText: verified")
+            } else {
+                logToFile("pasteText: unverifiable")
             }
-            logToFile("pasteText — clipboard restored")
+
+            // The receiving app reads the clipboard asynchronously — restoring too
+            // early wipes the text mid-paste. Keep the established 600ms total margin.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                if let previous {
+                    pasteboard.setString(previous, forType: .string)
+                }
+                logToFile("pasteText — clipboard restored")
+            }
+        }
+    }
+
+    private func showManualPasteNotification() {
+        // UserNotifications requires a real .app bundle proxy. SwiftPM's bare
+        // debug executable has none, and calling current() there raises an
+        // Objective-C exception. Production builds always have a bundle ID.
+        guard Bundle.main.bundleIdentifier != nil else {
+            logToFile("pasteText: notification skipped — unbundled debug executable")
+            return
+        }
+
+        let center = UNUserNotificationCenter.current()
+        let deliver = {
+            let content = UNMutableNotificationContent()
+            content.title = "IndianWhisper"
+            content.body = "Your text is copied — paste with Cmd+V"
+            let request = UNNotificationRequest(
+                identifier: "paste-failed-\(UUID().uuidString)",
+                content: content,
+                trigger: nil
+            )
+            center.add(request)
+        }
+
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                deliver()
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert]) { granted, _ in
+                    if granted { deliver() }
+                }
+            case .denied:
+                break
+            @unknown default:
+                break
+            }
         }
     }
 
