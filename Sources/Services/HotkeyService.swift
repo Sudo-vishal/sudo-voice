@@ -58,7 +58,10 @@ final class HotkeyService {
         static let toggleID: UInt32 = 1
         static let repasteID: UInt32 = 2
         static let repasteKeyCode = UInt32(kVK_ANSI_V)
-        static let repasteModifiers = UInt32(cmdKey | controlKey)
+        // ⌃⇧⌘V — NOT ⌃⌘V: that is Wispr Flow's global "paste last transcript" hotkey,
+        // and on a machine running both apps Wispr wins the registration and our
+        // handler never fires (observed 2026-07-16). Shift added to stay conflict-free.
+        static let repasteModifiers = UInt32(cmdKey | controlKey | shiftKey)
     }
 
     private var hotkeyRef: EventHotKeyRef?
@@ -207,7 +210,7 @@ final class HotkeyService {
             id: Hotkey.repasteID
         )
 
-        RegisterEventHotKey(
+        let status = RegisterEventHotKey(
             Hotkey.repasteKeyCode,
             Hotkey.repasteModifiers,
             hotkeyID,
@@ -215,6 +218,11 @@ final class HotkeyService {
             0,
             &repasteHotkeyRef
         )
+        // A silent registration failure (e.g. another app owns the combo) is how
+        // the Wispr Flow ⌃⌘V collision went unnoticed — always log the outcome.
+        logToFile(status == noErr
+            ? "Re-paste hotkey registered: ⌃⇧⌘V"
+            : "Re-paste hotkey registration FAILED (status \(status)) — combo may be owned by another app")
         logToFile("Re-paste hotkey registered: Ctrl + Cmd + V")
     }
 

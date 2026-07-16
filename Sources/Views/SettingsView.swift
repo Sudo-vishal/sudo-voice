@@ -136,7 +136,7 @@ private struct GeneralTab: View {
                             Spacer()
                             HotkeyPicker(appState: appState)
                         }
-                        Text("Re-paste last dictation: ⌃⌘V")
+                        Text("Re-paste last dictation: ⌃⇧⌘V")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
