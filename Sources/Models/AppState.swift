@@ -558,8 +558,8 @@ final class AppState {
                     Task { @MainActor [weak self] in
                         guard let self = self else { return }
                         // If Cmd+D toggle is already recording, ignore PTT press.
-                        guard !self.isRecording else {
-                            logToFile("PTT press ignored: Cmd+D recording active")
+                        guard !self.isRecording, !self.isFinalizingSession else {
+                            logToFile("PTT press ignored: recording active or previous session in stop grace/finalization")
                             return
                         }
                         self.pttHeldStart = Date()
@@ -798,11 +798,26 @@ final class AppState {
         isFinalizingSession = true
         playRecordingSound("Pop")  // soft thud cue on stop
         floatingIndicator?.update(isRecording: false, isProcessing: true)
-
-        let remaining = audioService?.stopRecording()
-        let cloudSession = audioService?.takeRetainedCloudSession()
         let stopStartedAt = Date()
 
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let remaining = await self.audioService?.stopRecording()
+            let cloudSession = self.audioService?.takeRetainedCloudSession()
+            self.finishStoppedRecording(
+                remaining: remaining,
+                cloudSession: cloudSession,
+                stopStartedAt: stopStartedAt
+            )
+        }
+    }
+
+    @MainActor
+    private func finishStoppedRecording(
+        remaining: [Float]?,
+        cloudSession: (samples: [Float], exceededLimit: Bool)?,
+        stopStartedAt: Date
+    ) {
         if pttCancelOnNextStop {
             pttCancelOnNextStop = false
             logToFile("PTT cancel — discarding \(remaining?.count ?? 0) samples")

@@ -3,6 +3,9 @@ import Accelerate
 import CoreAudio
 
 final class AudioCaptureService {
+    /// Keep capturing briefly after the stop gesture so the user's last word is not clipped.
+    private static let stopGraceMs: UInt64 = 450
+
     private var audioEngine = AVAudioEngine()
     private var audioConverter: AVAudioConverter?
     private let targetFormat: AVAudioFormat
@@ -320,8 +323,13 @@ final class AudioCaptureService {
         watchdogTimer = nil
     }
 
-    /// Stop recording and return any remaining accumulated audio
-    func stopRecording() -> [Float]? {
+    /// Stop after the grace window and return all remaining accumulated audio.
+    @MainActor
+    func stopRecording() async -> [Float]? {
+        let graceStartedAt = Date()
+        try? await Task.sleep(nanoseconds: Self.stopGraceMs * 1_000_000)
+        logToFile("Audio stop grace: \(Int(Date().timeIntervalSince(graceStartedAt) * 1000))ms captured before teardown")
+
         isCurrentlyRecording = false
         reconnectWorkItem?.cancel()
         stopWatchdog()
