@@ -46,18 +46,31 @@ final class TranscriptionService {
         whisperKit = nil
 
         let modelName = "openai_whisper-\(model.rawValue)"
-        logToFile("Loading model \(modelName) — starting download/verify")
+        let localFolder = Self.localModelFolder(for: modelName)
+        let modelFolder: URL
 
-        // Step 1: download (or verify cached) with live progress.
-        // If already on disk, this returns near-instantly at 100%.
-        let modelFolder = try await WhisperKit.download(
-            variant: modelName,
-            downloadBase: Self.modelBase,
-            from: "argmaxinc/whisperkit-coreml",
-            progressCallback: { progress in
-                onProgress(progress.fractionCompleted)
+        if Self.isValidModelFolder(localFolder) {
+            logToFile("Model \(modelName) found on disk — loading offline")
+            modelFolder = localFolder
+        } else {
+            logToFile("Loading model \(modelName) — starting download/verify")
+            do {
+                modelFolder = try await WhisperKit.download(
+                    variant: modelName,
+                    downloadBase: Self.modelBase,
+                    from: "argmaxinc/whisperkit-coreml",
+                    progressCallback: { progress in
+                        onProgress(progress.fractionCompleted)
+                    }
+                )
+            } catch {
+                guard FileManager.default.fileExists(atPath: localFolder.path) else {
+                    throw error
+                }
+                logToFile("Model \(modelName) download failed — attempting best-effort offline load: \(error)")
+                modelFolder = localFolder
             }
-        )
+        }
         onProgress(1.0)
         logToFile("Model \(modelName) ready at \(modelFolder.path) — initializing")
 
@@ -115,9 +128,26 @@ final class TranscriptionService {
     /// Check if a model is downloaded locally
     func isModelDownloaded(_ model: WhisperModelSize) -> Bool {
         let modelName = "openai_whisper-\(model.rawValue)"
-        let localPath = Self.modelBase
-            .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml/\(modelName)")
-        return FileManager.default.fileExists(atPath: localPath.path)
+        return Self.isValidModelFolder(Self.localModelFolder(for: modelName))
+    }
+
+    private static func localModelFolder(for modelName: String) -> URL {
+        modelBase.appendingPathComponent(
+            "huggingface/models/argmaxinc/whisperkit-coreml/\(modelName)",
+            isDirectory: true
+        )
+    }
+
+    private static func isValidModelFolder(_ folder: URL) -> Bool {
+        let requiredPaths = [
+            "config.json",
+            "AudioEncoder.mlmodelc",
+            "MelSpectrogram.mlmodelc",
+            "TextDecoder.mlmodelc"
+        ]
+        return requiredPaths.allSatisfy {
+            FileManager.default.fileExists(atPath: folder.appendingPathComponent($0).path)
+        }
     }
 }
 
