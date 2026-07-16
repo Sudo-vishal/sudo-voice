@@ -126,20 +126,25 @@ private struct GeneralTab: View {
                     }
                     .padding(.vertical, 4)
 
-                    Toggle("Hindi Mode (Hindi/Hinglish → English)", isOn: $state.hindiMode)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Devanagari Hindi (शुद्ध हिंदी)", isOn: $state.hindiMode)
+                        Text("Pure Hindi dictation in Devanagari script. Keep OFF for Hinglish or English — auto-detect handles mixed speech best.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
                 }
 
                 GroupBox("Transcription") {
                     VStack(alignment: .leading, spacing: 6) {
-                        Toggle("Cloud transcription (real-time streaming)", isOn: $state.useCloudTranscription)
+                        Toggle("Cloud transcription", isOn: $state.useCloudTranscription)
 
-                        Text("Words appear while you speak, via Google Gemini with your API key. Off = 100% on-device, audio never leaves your Mac.")
+                        Text("Transcribes once at stop via Groq with your API key (fast cloud model). Off = 100% on-device, audio never leaves your Mac.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        if appState.geminiApiKey.isEmpty && appState.openRouterApiKey.isEmpty {
-                            Label("Add a Gemini API key in AI Cleanup tab first", systemImage: "exclamationmark.triangle")
+                        if appState.groqApiKey.isEmpty {
+                            Label("Add a Groq API key in AI Cleanup tab first", systemImage: "exclamationmark.triangle")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -718,7 +723,7 @@ private struct LicenseTab: View {
 
                 GroupBox("Get Pro") {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Gemini Live streaming, and unlimited transcription.")
+                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Groq cloud transcription, and unlimited transcription.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Link("indianwhisper.com/pricing", destination: URL(string: "https://indianwhisper.com/pricing")!)

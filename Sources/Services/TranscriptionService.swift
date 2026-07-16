@@ -3,6 +3,7 @@ import Foundation
 
 final class TranscriptionService {
     private var whisperKit: WhisperKit?
+    var hasLoadedModel: Bool { whisperKit != nil }
 
     /// Model storage — ~/Library/Application Support/IndianWhisper/models.
     /// WhisperKit's default is ~/Documents/huggingface, which triggers macOS's

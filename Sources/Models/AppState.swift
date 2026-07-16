@@ -105,17 +105,7 @@ final class AppState {
     // Permission health (client-ready pass) — drives visible warnings instead of silent failures
     var micPermissionLost = false
     var accessibilityFallbackActive = false
-    /// Gemini Live failed and we silently dropped to REST chunking. Surfaced in statusText.
-    var liveFallbackActive = false
-
-    /// Strip `key=<secret>` out of anything headed for the log (URLError prints the URL).
-    static func maskingKeys(in text: String) -> String {
-        text.replacingOccurrences(
-            of: "key=[A-Za-z0-9_\\-]+",
-            with: "key=****",
-            options: .regularExpression
-        )
-    }
+    var cloudTranscriptionError: String?
 
     // Transcription
     var lastTranscription = ""
@@ -123,17 +113,6 @@ final class AppState {
 
     // Scratch-that tracking (non-persisted, per session)
     var recentOutputLengths: [Int] = []
-
-    // Live streaming partial-typing state (v2.6 — Wispr-style instant text).
-    // Tracks what we've ALREADY typed for the in-flight Gemini Live turn so the
-    // turn-complete handler can reconcile (append the tail, or delete+retype if
-    // the final differs) instead of double-typing.
-    var livePartialTypedText = ""
-    var liveTurnStartedAt: Date?
-    /// Don't start typing a turn until the buffer clears this length — voice
-    /// commands ("scratch that", "summarize this") and hallucination outputs
-    /// are all shorter, so they never get half-typed and then yanked back.
-    static let livePartialMinChars = 24
 
     // Push-to-talk state (non-persisted, per recording session)
     private var pttHeldStart: Date?
@@ -146,6 +125,7 @@ final class AppState {
     private var sessionChunks: [String] = []
     private var sessionAudioSeconds: Double = 0
     private var isFinalizingSession = false
+    private var sessionUsesCloud = false
 
     // Settings (persisted via UserDefaults)
     var selectedModel: WhisperModelSize {
@@ -160,7 +140,7 @@ final class AppState {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "selectedModel") }
     }
 
-    /// Cloud transcription via Gemini — better for Indian English, requires internet
+    /// Cloud transcription via Groq — one whole-session request at stop.
     /// Community Edition: default OFF (local-first, no API key needed)
     var useCloudTranscription: Bool = {
         return UserDefaults.standard.object(forKey: "useCloudTranscription") as? Bool ?? false
@@ -172,7 +152,7 @@ final class AppState {
                 Task { await loadModel() }
             }
             // When switching to cloud, mark ready immediately
-            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
+            if useCloudTranscription && !groqApiKey.isEmpty {
                 isModelLoaded = true
             }
         }
@@ -476,9 +456,9 @@ final class AppState {
         }
         if isModelDownloading { return "Downloading model (\(Int(modelDownloadProgress * 100))%)..." }
         if useCloudTranscription {
-            if geminiApiKey.isEmpty && openRouterApiKey.isEmpty { return "Set API key in Settings" }
-            if liveFallbackActive && isRecording { return "Cloud: fallback mode (no streaming)" }
-            if isRecording { return "Streaming (Cloud)..." }
+            if groqApiKey.isEmpty { return "Set Groq API key in Settings" }
+            if let cloudTranscriptionError { return cloudTranscriptionError }
+            if isRecording { return "Listening (Cloud)..." }
             if isProcessing { return "Transcribing..." }
             if let hotkey = hotkeyService?.displayString {
                 return "Ready (Cloud) — \(hotkey) to start"
@@ -501,8 +481,7 @@ final class AppState {
     // Services
     var audioService: AudioCaptureService?
     var transcriptionService: TranscriptionService?
-    var geminiTranscriptionService: GeminiTranscriptionService?
-    var liveTranscriptionService: GeminiLiveTranscriptionService?
+    var groqTranscriptionService: GroqTranscriptionService?
     var autoTypeService: AutoTypeService?
     var hotkeyService: HotkeyService?
     var floatingIndicator: FloatingIndicatorController?
@@ -537,7 +516,7 @@ final class AppState {
         logToFile("Mic permission checked")
 
         transcriptionService = TranscriptionService()
-        geminiTranscriptionService = GeminiTranscriptionService()
+        groqTranscriptionService = GroqTranscriptionService()
         audioService = AudioCaptureService()
         autoTypeService = AutoTypeService()
         llmCleanupService = LLMCleanupService()
@@ -616,8 +595,8 @@ final class AppState {
         logToFile("Services initialized, hotkey registered")
 
         // If cloud mode, mark ready immediately (no model download needed)
-        let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
-        logToFile("Cloud check: useCloud=\(useCloudTranscription) geminiKey=\(geminiApiKey.isEmpty ? "EMPTY" : "SET(\(geminiApiKey.prefix(8))...)") openRouterKey=\(openRouterApiKey.isEmpty ? "EMPTY" : "SET")")
+        let hasCloudKey = !groqApiKey.isEmpty
+        logToFile("Cloud check: useCloud=\(useCloudTranscription) groqKey=\(groqApiKey.isEmpty ? "EMPTY" : "SET")")
         if useCloudTranscription && hasCloudKey {
             await MainActor.run {
                 isModelLoaded = true
@@ -768,11 +747,12 @@ final class AppState {
         }
         micPermissionLost = false
 
-        // Cloud mode doesn't need local model
-        let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
-        guard isModelLoaded || (useCloudTranscription && hasCloudKey) else { return }
+        // Cloud mode doesn't need a local model unless Groq fails.
+        let hasCloudKey = !groqApiKey.isEmpty
+        guard useCloudTranscription ? hasCloudKey : isModelLoaded else { return }
 
         isRecording = true
+        cloudTranscriptionError = nil
         playRecordingSound("Tink")  // sharp click cue on start
         if useCloudTranscription && hasCloudKey {
             isModelLoaded = true  // ensure UI shows ready
@@ -786,68 +766,13 @@ final class AppState {
         sessionChunks.removeAll()
         sessionAudioSeconds = 0
         isFinalizingSession = false
-        liveFallbackActive = false
 
-        let isCloudMode = useCloudTranscription && hasCloudKey
+        sessionUsesCloud = useCloudTranscription && hasCloudKey
 
         // Configure audio thresholds based on transcription mode
-        audioService?.configureForCloudMode(isCloudMode)
-
-        if isCloudMode {
-            // STREAMING MODE: Gemini Live API via WebSocket
-            let service = GeminiLiveTranscriptionService()
-            liveTranscriptionService = service
-
-            // Handle transcription text from Gemini Live
-            service.onTranscription = { [weak self] text in
-                Task { @MainActor [weak self] in
-                    self?.handleLiveTranscription(text)
-                }
-            }
-
-            // v2.6: type partial text WHILE the user speaks (Wispr-style).
-            // The turn-complete handler reconciles against what was typed.
-            service.onPartial = { [weak self] buffer in
-                Task { @MainActor [weak self] in
-                    self?.handleLivePartial(buffer)
-                }
-            }
-
-            // Connect to Gemini Live, then start audio streaming
-            Task {
-                do {
-                    try await service.connect(
-                        apiKey: geminiApiKey,
-                        language: language,
-                        customInstructions: customStyleInstructions
-                    )
-
-                    // Stream audio directly to Gemini Live (no VAD batching)
-                    await MainActor.run {
-                        audioService?.onAudioStream = { [weak service] samples in
-                            service?.sendAudio(samples)
-                        }
-                    }
-
-                    logToFile("Gemini Live streaming active")
-                    await MainActor.run { liveFallbackActive = false }
-                } catch {
-                    // URLError embeds the failing URL — which carries ?key=<apiKey>.
-                    logToFile("Gemini Live connect failed: \(Self.maskingKeys(in: "\(error)")) — falling back to REST")
-                    // Fallback: disable streaming, use normal chunk-based REST
-                    await MainActor.run {
-                        audioService?.onAudioStream = nil
-                        liveTranscriptionService = nil
-                        // Surface it: a silent downgrade to REST spent a whole day
-                        // masquerading as streaming.
-                        liveFallbackActive = true
-                    }
-                }
-            }
-        } else {
-            // LOCAL MODE: normal VAD chunking
-            audioService?.onAudioStream = nil
-            liveTranscriptionService = nil
+        audioService?.configureForCloudMode(sessionUsesCloud)
+        if sessionUsesCloud {
+            logToFile("Cloud session started — buffering audio; mid-session transcription and voice commands disabled")
         }
 
         do {
@@ -856,7 +781,8 @@ final class AppState {
                 silenceThreshold: silenceThreshold
             ) { [weak self] samples in
                 Task { @MainActor [weak self] in
-                    self?.enqueueChunk(samples)
+                    guard let self, !self.sessionUsesCloud else { return }
+                    self.enqueueChunk(samples)
                 }
             }
         } catch {
@@ -873,14 +799,8 @@ final class AppState {
         playRecordingSound("Pop")  // soft thud cue on stop
         floatingIndicator?.update(isRecording: false, isProcessing: true)
 
-        // Cloud live mode retains its existing behavior until IW-A11.
-        flushLivePartialAccounting()
-
-        audioService?.onAudioStream = nil
-        liveTranscriptionService?.disconnect()
-        liveTranscriptionService = nil
-
         let remaining = audioService?.stopRecording()
+        let cloudSession = audioService?.takeRetainedCloudSession()
         let stopStartedAt = Date()
 
         if pttCancelOnNextStop {
@@ -894,14 +814,13 @@ final class AppState {
             return
         }
 
-        // IW-A10 is local-mode only. Preserve Gemini Live behavior until IW-A11,
-        // and discard any batch chunks produced alongside the live stream.
-        let hasCloudKey = !geminiApiKey.isEmpty || !openRouterApiKey.isEmpty
-        if useCloudTranscription && hasCloudKey {
-            let pending = chunkChain
+        if sessionUsesCloud {
             Task { @MainActor [weak self] in
-                await pending?.value
-                self?.resetBufferedSession()
+                guard let self else { return }
+                await self.finalizeCloudSession(
+                    cloudSession,
+                    stopStartedAt: stopStartedAt
+                )
             }
             return
         }
@@ -922,7 +841,8 @@ final class AppState {
             let finalChunkMs = await finalTask.value
             await self.finalizeBufferedSession(
                 stopStartedAt: stopStartedAt,
-                finalChunkMs: finalChunkMs
+                finalChunkMs: finalChunkMs,
+                engine: "local"
             )
         }
     }
@@ -934,73 +854,6 @@ final class AppState {
             await previous?.value
             await self?.processChunk(samples)
         }
-    }
-
-    // MARK: - Output Mode Helpers
-
-    /// Detects "summarize this/that/the text/it" at the END of a transcript chunk.
-    /// Returns (matched, prefix) where prefix is the chunk with the trigger phrase
-    /// stripped (and trailing punctuation/whitespace trimmed). On no-match, returns
-    /// (false, originalText). Case-insensitive; tolerant of "summarise" UK spelling.
-    private func detectSummarizeTrigger(_ text: String) -> (matched: Bool, stripped: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lower = trimmed.lowercased()
-        // Sorted longest-first so we strip the longest match (avoids partial matches).
-        let triggers = [
-            "summarize the text", "summarise the text",
-            "summarize this", "summarise this",
-            "summarize that", "summarise that",
-            "summarize it", "summarise it",
-            "summarize", "summarise",
-        ]
-        // Strip optional trailing period for matching
-        let candidate = lower.hasSuffix(".") ? String(lower.dropLast()) : lower
-        for trigger in triggers {
-            if candidate.hasSuffix(trigger) {
-                let endIdx = trimmed.index(trimmed.endIndex, offsetBy: -trigger.count - (lower.hasSuffix(".") ? 1 : 0))
-                let prefix = String(trimmed[..<endIdx])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: ",;:.- "))
-                return (true, prefix)
-            }
-        }
-        return (false, text)
-    }
-
-    // MARK: - Live Streaming Pipeline
-
-    /// v2.6: type streamed partial text at the cursor WHILE the user speaks.
-    /// Only the new suffix is typed each time (Gemini native-audio generates
-    /// transcript tokens append-only within a turn, so suffix-typing is safe).
-    @MainActor
-    private func handleLivePartial(_ buffer: String) {
-        guard isRecording, autoTypeEnabled else { return }
-        // Never partial-type things the completion handler would suppress:
-        // noise descriptions and anything short enough to be a voice command.
-        let probe = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
-        if probe.hasPrefix("(") || probe.hasPrefix("[") || probe.hasPrefix("*") { return }
-        if buffer.count < Self.livePartialMinChars && livePartialTypedText.isEmpty { return }
-        guard buffer.count > livePartialTypedText.count,
-              buffer.hasPrefix(livePartialTypedText) else { return }
-
-        if livePartialTypedText.isEmpty {
-            liveTurnStartedAt = Date()
-            accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
-        }
-        let delta = String(buffer.dropFirst(livePartialTypedText.count))
-        autoTypeService?.typeText(delta)
-        livePartialTypedText = buffer
-    }
-
-    /// Flush partial-typing accounting when a turn ends without reconciliation
-    /// (user hit stop mid-turn): keep what's typed, keep scratch-that coherent.
-    @MainActor
-    private func flushLivePartialAccounting() {
-        guard !livePartialTypedText.isEmpty else { return }
-        recentOutputLengths.append(livePartialTypedText.count)
-        sessionTotalChars += livePartialTypedText.count
-        livePartialTypedText = ""
-        liveTurnStartedAt = nil
     }
 
     // MARK: - Insert-Once Session Buffer
@@ -1043,6 +896,7 @@ final class AppState {
         chunkChain = nil
         sessionChunks.removeAll()
         sessionAudioSeconds = 0
+        sessionUsesCloud = false
         isProcessing = false
         isFinalizingSession = false
         floatingIndicator?.hide()
@@ -1063,7 +917,80 @@ final class AppState {
     }
 
     @MainActor
-    private func finalizeBufferedSession(stopStartedAt: Date, finalChunkMs: Int) async {
+    private func finalizeCloudSession(
+        _ capture: (samples: [Float], exceededLimit: Bool)?,
+        stopStartedAt: Date
+    ) async {
+        guard let capture else {
+            surfaceCloudTranscriptionError("Cloud audio capture failed. Try again or switch Cloud off.")
+            return
+        }
+        guard !capture.exceededLimit else {
+            logToFile("SESSION: cloud rejected — recording exceeded 5-minute memory cap")
+            surfaceCloudTranscriptionError("Cloud recordings are limited to 5 minutes. Switch Cloud off for longer dictation.")
+            return
+        }
+        guard !capture.samples.isEmpty else {
+            await finalizeBufferedSession(
+                stopStartedAt: stopStartedAt,
+                finalChunkMs: 0,
+                engine: "groq"
+            )
+            return
+        }
+
+        let duration = Double(capture.samples.count) / 16000.0
+        trackTranscriptionTime(seconds: duration)
+        let transcriptionStartedAt = Date()
+
+        do {
+            let text = try await groqTranscriptionService?.transcribe(
+                audioSamples: capture.samples,
+                apiKey: groqApiKey,
+                language: hindiMode ? "hi" : nil
+            ) ?? ""
+            let transcriptionMs = Int(Date().timeIntervalSince(transcriptionStartedAt) * 1000)
+            appendSessionChunk(text, duration: duration)
+            await finalizeBufferedSession(
+                stopStartedAt: stopStartedAt,
+                finalChunkMs: transcriptionMs,
+                engine: "groq"
+            )
+        } catch {
+            logToFile("Groq transcription failed: \(error.localizedDescription)")
+            guard transcriptionService?.hasLoadedModel == true else {
+                surfaceCloudTranscriptionError("Cloud transcription failed. Check your connection or switch Cloud off after the local model loads.")
+                return
+            }
+
+            do {
+                logToFile("Groq fallback: transcribing retained session with local WhisperKit")
+                let text = try await transcriptionService?.transcribe(
+                    audioSamples: capture.samples,
+                    language: language
+                ) ?? ""
+                let transcriptionMs = Int(Date().timeIntervalSince(transcriptionStartedAt) * 1000)
+                appendSessionChunk(text, duration: duration)
+                await finalizeBufferedSession(
+                    stopStartedAt: stopStartedAt,
+                    finalChunkMs: transcriptionMs,
+                    engine: "local"
+                )
+            } catch {
+                logToFile("Groq local fallback failed: \(error.localizedDescription)")
+                surfaceCloudTranscriptionError("Cloud and local transcription both failed. Your document was not changed.")
+            }
+        }
+    }
+
+    @MainActor
+    private func surfaceCloudTranscriptionError(_ message: String) {
+        cloudTranscriptionError = message
+        resetBufferedSession()
+    }
+
+    @MainActor
+    private func finalizeBufferedSession(stopStartedAt: Date, finalChunkMs: Int, engine: String) async {
         isProcessing = true
         let rawText = sessionChunks
             .joined(separator: " ")
@@ -1073,7 +1000,7 @@ final class AppState {
         defer { resetBufferedSession() }
 
         guard !rawText.isEmpty else {
-            logToFile("SESSION: stop→pasted \(Int(Date().timeIntervalSince(stopStartedAt) * 1000))ms (final-chunk \(finalChunkMs)ms, cleanup 0ms, chars 0)")
+            logToFile("SESSION: stop→pasted \(Int(Date().timeIntervalSince(stopStartedAt) * 1000))ms (final-chunk \(finalChunkMs)ms, cleanup 0ms, chars 0, engine=\(engine))")
             return
         }
 
@@ -1139,7 +1066,9 @@ final class AppState {
 
         if currentUser != nil {
             let language: String = hindiMode ? "hi-IN" : "en-IN"
-            let modelUsed = "whisper-\(selectedModel.rawValue)"
+            let modelUsed = engine == "groq"
+                ? "groq-whisper-large-v3-turbo"
+                : "whisper-\(selectedModel.rawValue)"
             let wordCount = outputText.split(separator: " ").count
             Task.detached {
                 _ = await SupabaseService.shared.saveTranscript(
@@ -1164,289 +1093,7 @@ final class AppState {
         }
 
         let totalMs = Int(Date().timeIntervalSince(stopStartedAt) * 1000)
-        logToFile("SESSION: stop→pasted \(totalMs)ms (final-chunk \(finalChunkMs)ms, cleanup \(cleanupMs)ms, chars \(outputText.count))")
-    }
-
-    /// Handle text from Gemini Live WebSocket (already transcribed + cleaned)
-    @MainActor
-    private func handleLiveTranscription(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lower = trimmed.lowercased()
-
-        // Reconciliation baseline: what handleLivePartial already typed for
-        // this turn. Reset immediately so the next turn starts clean.
-        let partialTyped = livePartialTypedText
-        livePartialTypedText = ""
-        if let t0 = liveTurnStartedAt {
-            logToFile(String(format: "LATENCY live turn: first-char→complete %.0fms, %d chars streamed", Date().timeIntervalSince(t0) * 1000, partialTyped.count))
-            liveTurnStartedAt = nil
-        }
-        // A voice command or suppressed output below must first un-type any
-        // partial text (rare: commands are under the 24-char typing threshold).
-        func eraseTypedPartial() {
-            if !partialTyped.isEmpty {
-                autoTypeService?.deleteCharacters(partialTyped.count)
-            }
-        }
-
-        guard !trimmed.isEmpty else { eraseTypedPartial(); return }
-
-        // Hallucination filter
-        let hallucinations: Set<String> = [
-            ".", "..", "...", "thank you.", "thanks for watching!",
-            "thank you for watching!", "bye.", "bye!", "you",
-            "thanks.", "thank you", "thanks for watching.",
-            "subscribe", "like and subscribe", "mm.", "hmm.",
-            "mm", "hmm", "uh", "um", "ah", "oh",
-        ]
-        if hallucinations.contains(lower) { eraseTypedPartial(); return }
-
-        // Skip noise descriptions
-        if (lower.hasPrefix("(") && lower.hasSuffix(")")) ||
-           (lower.hasPrefix("[") && lower.hasSuffix("]")) ||
-           (lower.hasPrefix("*") && lower.hasSuffix("*")) { eraseTypedPartial(); return }
-
-        // Voice command detection
-        if scratchThatEnabled {
-            let command = VoiceCommandService.detect(trimmed)
-            // Commands act on PREVIOUS output — any partial text typed for this
-            // turn must go first (rare: commands sit under the typing threshold)
-            if command != .none {
-                eraseTypedPartial()
-            }
-            switch command {
-            case .scratchThat:
-                if let lastLength = recentOutputLengths.popLast() {
-                    autoTypeService?.deleteCharacters(lastLength)
-                    sessionTotalChars -= lastLength
-                    logToFile("SCRATCH THAT: deleted \(lastLength) chars")
-                }
-                return
-            case .deleteWord:
-                autoTypeService?.deleteLastWord()
-                logToFile("DELETE WORD")
-                return
-            case .clearAll:
-                if sessionTotalChars > 0 {
-                    autoTypeService?.deleteCharacters(sessionTotalChars)
-                    logToFile("CLEAR ALL: deleted \(sessionTotalChars) chars")
-                    sessionTotalChars = 0
-                    recentOutputLengths.removeAll()
-                }
-                return
-            case .copy:
-                if !lastTranscription.isEmpty {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(lastTranscription, forType: .string)
-                    logToFile("COPY: \(lastTranscription.count) chars to clipboard")
-                }
-                return
-            case .paste:
-                let source = CGEventSource(stateID: .hidSystemState)
-                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
-                    keyDown.flags = .maskCommand
-                    keyUp.flags = .maskCommand
-                    keyDown.post(tap: .cgSessionEventTap)
-                    keyUp.post(tap: .cgSessionEventTap)
-                    logToFile("PASTE: Cmd+V sent")
-                }
-                return
-            case .cut:
-                if !lastTranscription.isEmpty {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(lastTranscription, forType: .string)
-                    if let lastLength = recentOutputLengths.popLast() {
-                        autoTypeService?.deleteCharacters(lastLength)
-                        sessionTotalChars -= lastLength
-                    }
-                    logToFile("CUT: copied \(lastTranscription.count) chars + deleted from app")
-                }
-                return
-            case .stopDictation:
-                logToFile("STOP command — ending dictation")
-                stopRecording()
-                return
-            case .selectAll:
-                let src = CGEventSource(stateID: .hidSystemState)
-                if let d = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true),
-                   let u = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
-                    d.flags = .maskCommand; u.flags = .maskCommand
-                    d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
-                    logToFile("SELECT ALL: Cmd+A sent")
-                }
-                return
-            case .pressEnter:
-                let src = CGEventSource(stateID: .hidSystemState)
-                if let d = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: true),
-                   let u = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: false) {
-                    d.post(tap: .cgSessionEventTap); u.post(tap: .cgSessionEventTap)
-                    logToFile("PRESS ENTER: Return sent")
-                }
-                return
-            case .none:
-                break
-            }
-        }
-
-        // Detect summarize trigger + compute effective output mode (D-IW-MAC-VOICE-CMD-001)
-        let (summarizeTriggerDetected, summarizeRawInput) = detectSummarizeTrigger(trimmed)
-        let effectiveMode: OutputMode = summarizeTriggerDetected ? .summary : outputMode
-
-        // Smart punctuation (skipped for .raw mode — user explicitly wants no editing)
-        let finalText: String
-        if effectiveMode == .raw {
-            finalText = trimmed
-        } else {
-            finalText = smartPunctuationEnabled ? SmartPunctuationService.apply(trimmed) : trimmed
-        }
-
-        // Standalone "summarize this" — trigger phrase IS the chunk (no preceding content).
-        // Operate on the previously-typed transcript: replace it with a summary.
-        let isStandaloneSummarize = summarizeTriggerDetected
-            && summarizeRawInput.isEmpty
-            && !lastTranscription.isEmpty
-
-        // Route output: .raw uses trimmed, .clean uses finalText, .summary needs an async LLM call
-        let summarizeInput: String = {
-            if isStandaloneSummarize { return lastTranscription }
-            return summarizeTriggerDetected ? summarizeRawInput : finalText
-        }()
-        let needsSummary = (effectiveMode == .summary)
-            && hasAnyLLMKey
-            && summarizeInput.split(separator: " ").count >= 3
-
-        // Standalone trigger but can't summarize (no LLM key OR lastTranscription too short)
-        // → silent no-op. Don't echo "summarize this" back. Don't delete. Don't cloud-save.
-        if isStandaloneSummarize && !needsSummary {
-            logToFile("Standalone summarize ignored (live): no LLM key or lastTranscription too short")
-            return
-        }
-
-        if needsSummary {
-            // Async path — summarize first, then emit. User sees a slight delay then the summary appears.
-            let captureIsStandalone = isStandaloneSummarize
-            let capturePartial = partialTyped
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                let summary = await self.llmCleanupService?.summarizeWithProvider(
-                    summarizeInput,
-                    provider: self.selectedLLMProvider,
-                    apiKeys: self.allAPIKeys(),
-                    language: self.hindiMode ? "hi-IN" : "en-IN",
-                    customInstructions: self.customStyleInstructions
-                ) ?? summarizeInput
-                self.applyLiveOutput(
-                    rawText: trimmed,
-                    outputText: summary,
-                    cloudCleaned: summary,
-                    llmCleanupModel: self.selectedLLMProvider.modelName,
-                    isStandaloneSummarize: captureIsStandalone,
-                    partialTyped: capturePartial
-                )
-            }
-        } else {
-            // Sync path — .raw / .clean / .summary-with-fallback (no key or text too short)
-            let outputText: String = (effectiveMode == .raw) ? trimmed : finalText
-            let cloudCleaned: String? = (effectiveMode == .raw) ? nil : ((finalText != trimmed) ? finalText : nil)
-            if effectiveMode == .summary && !needsSummary {
-                logToFile("Summary fallback (live): no LLM key or text too short — using \(finalText == trimmed ? "raw" : "clean")")
-            }
-            applyLiveOutput(
-                rawText: trimmed,
-                outputText: outputText,
-                cloudCleaned: cloudCleaned,
-                llmCleanupModel: nil,
-                isStandaloneSummarize: false,
-                partialTyped: partialTyped
-            )
-        }
-    }
-
-    /// Shared post-transcription emit for live mode: history + cloud save + auto-type.
-    /// IW-007 cloud save fires regardless of output mode; only what's typed and the
-    /// cleanedText/llmCleanupModel fields differ per mode.
-    /// `isStandaloneSummarize` (default false): when true, deletes the previously-typed
-    /// transcript via recentOutputLengths.popLast() before typing the summary, so
-    /// "summarize this" alone replaces the prior dictation in place.
-    private func applyLiveOutput(
-        rawText: String,
-        outputText: String,
-        cloudCleaned: String?,
-        llmCleanupModel: String?,
-        isStandaloneSummarize: Bool = false,
-        partialTyped: String = ""
-    ) {
-        lastTranscription = outputText
-
-        transcriptionHistory.insert(
-            TranscriptionEntry(originalText: rawText, cleanedText: outputText),
-            at: 0
-        )
-        if transcriptionHistory.count > 100 {
-            transcriptionHistory = Array(transcriptionHistory.prefix(100))
-        }
-        saveHistory()
-
-        // Cloud save (signed-in users only) — fire-and-forget, never block on network
-        if let user = currentUser {
-            let charCount = outputText.count
-            let wordCount = outputText.split(separator: " ").count
-            let language: String = hindiMode ? "hi-IN" : "en-IN"
-            let captureLLMCleanupModel = llmCleanupModel
-
-            Task.detached {
-                _ = await SupabaseService.shared.saveTranscript(
-                    rawText: rawText,
-                    cleanedText: cloudCleaned,
-                    language: language,
-                    modelUsed: "gemini-live",
-                    llmCleanupModel: captureLLMCleanupModel,
-                    durationSeconds: nil,
-                    wordCount: wordCount,
-                    charCount: charCount
-                )
-            }
-            _ = user
-        }
-
-        // Standalone summarize: delete the previously-typed transcript so the summary
-        // replaces it in place (rather than appending after).
-        if isStandaloneSummarize, let lastLength = recentOutputLengths.popLast() {
-            autoTypeService?.deleteCharacters(lastLength)
-            sessionTotalChars -= lastLength
-            logToFile("Standalone summarize: deleted prior \(lastLength) chars before summary")
-        }
-
-        // Auto-type — reconcile against any partial text already streamed to
-        // the cursor while the user was speaking (v2.6).
-        if autoTypeEnabled {
-            let textToType = outputText + " "
-            // Accessibility gets revoked by macOS after every app update (TCC
-            // signature change). Flag it so statusText + menu warn the user
-            // instead of failing silently — the #1 "app is broken" complaint.
-            accessibilityFallbackActive = !AutoTypeService.isAccessibilityGranted()
-
-            if partialTyped.isEmpty {
-                autoTypeService?.deliver(textToType)
-            } else if outputText == partialTyped {
-                // Streamed text already matches — just close with the space
-                autoTypeService?.typeText(" ")
-            } else if outputText.hasPrefix(partialTyped) {
-                // Final extends the streamed prefix — type only the tail
-                autoTypeService?.deliver(String(outputText.dropFirst(partialTyped.count)) + " ")
-            } else {
-                // Punctuation/summary pass changed the text — replace in place
-                autoTypeService?.deleteCharacters(partialTyped.count)
-                autoTypeService?.deliver(textToType)
-            }
-
-            recentOutputLengths.append(textToType.count)
-            sessionTotalChars += textToType.count
-            if recentOutputLengths.count > 20 {
-                recentOutputLengths.removeFirst()
-            }
-        }
+        logToFile("SESSION: stop→pasted \(totalMs)ms (final-chunk \(finalChunkMs)ms, cleanup \(cleanupMs)ms, chars \(outputText.count), engine=\(engine))")
     }
 
     // MARK: - Batch Transcription Pipeline
@@ -1489,28 +1136,11 @@ final class AppState {
         }
 
         do {
-            let trimmed: String
-
-            if useCloudTranscription && (!geminiApiKey.isEmpty || !openRouterApiKey.isEmpty) {
-                // CLOUD PATH: OpenRouter or Gemini does transcription + cleanup in one call
-                let result = try await geminiTranscriptionService?.transcribe(
-                    audioSamples: samples,
-                    language: language,
-                    apiKey: geminiApiKey,
-                    openRouterKey: openRouterApiKey,
-                    customInstructions: customStyleInstructions,
-                    vocabulary: customVocabulary
-                ) ?? ""
-                logToFile("Gemini cloud: \"\(result.prefix(80))\" (rms=\(String(format: "%.3f", rms)) dur=\(String(format: "%.1f", chunkSeconds))s)")
-                trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                // LOCAL PATH: WhisperKit + optional LLM cleanup
-                let text = try await transcriptionService?.transcribe(
-                    audioSamples: samples,
-                    language: language
-                ) ?? ""
-                trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-            }
+            let text = try await transcriptionService?.transcribe(
+                audioSamples: samples,
+                language: language
+            ) ?? ""
+            let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
             let lower = trimmed.lowercased()
 
