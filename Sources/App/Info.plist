@@ -11,14 +11,12 @@
     <key>CFBundleIdentifier</key>
     <string>com.sudovoice.app</string>
     <!-- SudoVoice cloud backend (sign-in, Pro licensing, transcript sync).
-         Fill in when the SudoVoice Supabase project is created; until then the
-         app runs offline-only. Dev builds can also use the SUPABASE_URL /
-         SUPABASE_ANON_KEY environment variables instead.
+         The anon key is public-by-design (RLS enforces access). Dev builds can
+         override via SUPABASE_URL / SUPABASE_ANON_KEY environment variables. -->
     <key>SupabaseURL</key>
-    <string>https://YOUR-PROJECT-REF.supabase.co</string>
+    <string>https://iyuqavqjhmqnvvibbcmu.supabase.co</string>
     <key>SupabaseAnonKey</key>
-    <string>YOUR-ANON-KEY</string>
-    -->
+    <string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXFhdnFqaG1xbnZ2aWJiY211Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODk0MzAsImV4cCI6MjA5OTk2NTQzMH0.L56E3lb9c5cqKHQXI27FzsSNHTE_Ge2b5IvNCqCwg1o</string>
 
     <key>CFBundleVersion</key>
     <string>2.6.0</string>
