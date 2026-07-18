@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("sudovoice", {
   onSetupProgress: (cb) => ipcRenderer.on("setup:progress", (_e, m) => cb(m)),
   appVersion: () => ipcRenderer.invoke("app:version"),
   checkUpdates: () => ipcRenderer.invoke("updates:check"),
+  installUpdate: () => ipcRenderer.invoke("updates:install"),
+  onUpdateProgress: (cb) => ipcRenderer.on("update:progress", (_e, m) => cb(m)),
   // account
   authState: () => ipcRenderer.invoke("auth:state"),
   authSendCode: (email) => ipcRenderer.invoke("auth:sendCode", email),

@@ -254,6 +254,33 @@ ipcMain.handle("whisper:download", async () => {
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("updates:check", () => updates.check(app.getVersion()));
 
+// ------------------------------------------------------------------ self-update
+let updating = false;
+async function installUpdate(r, progress) {
+  if (updating) throw new Error("update already in progress");
+  updating = true;
+  try {
+    const exe = await updates.downloadInstaller(r, progress);
+    progress("installing — SudoVoice will restart");
+    updates.runInstaller(exe);
+    setTimeout(() => app.quit(), 500); // let the message render, then hand over
+  } catch (err) {
+    updating = false;
+    throw err;
+  }
+}
+
+ipcMain.handle("updates:install", async () => {
+  const r = await updates.check(app.getVersion());
+  if (!r.updateAvailable) return r;
+  await installUpdate(r, (msg) => {
+    if (settingsWin && !settingsWin.isDestroyed()) {
+      settingsWin.webContents.send("update:progress", msg);
+    }
+  });
+  return r;
+});
+
 // ------------------------------------------------------------------ account IPC
 ipcMain.handle("auth:state", () => supabase.getState());
 ipcMain.handle("auth:sendCode", (_evt, email) => supabase.sendCode(email));
@@ -300,9 +327,18 @@ function createTray() {
         if (r.updateAvailable) {
           const { response } = await dialog.showMessageBox({
             message: `SudoVoice v${r.latest} is available (you have v${r.current}).`,
-            buttons: ["Download", "Later"],
+            detail: "The update downloads in the background, then SudoVoice restarts.",
+            buttons: ["Install now", "Later"],
           });
-          if (response === 0) shell.openExternal(r.downloadURL);
+          if (response === 0) {
+            try {
+              await installUpdate(r, (msg) => tray.setToolTip(`SudoVoice — ${msg}`));
+            } catch (err) {
+              dialog.showErrorBox("Update failed",
+                `${err.message}\n\nOpening the download page so you can update manually.`);
+              shell.openExternal(r.downloadURL);
+            }
+          }
         } else {
           dialog.showMessageBox({ message: `You're up to date (v${r.current}).` });
         }

@@ -121,6 +121,7 @@
     <h2>system</h2>
     <label><span>Launch at login</span><input type="checkbox" id="launchAtLogin" /></label>
     <button class="ghost" id="updates">Check for updates</button>
+    <button id="installUpdate" style="display:none">Install update</button>
   </div>
 
 <script>
@@ -175,8 +176,24 @@
 
   $("updates").onclick = async () => {
     const r = await window.sudovoice.checkUpdates();
-    status(r.updateAvailable ? `update available: v${r.latest}` : `up to date (v${r.current})`, "ok");
+    if (r.updateAvailable) {
+      status(`update available: v${r.latest}`, "warn");
+      $("installUpdate").textContent = `Install v${r.latest} & restart`;
+      $("installUpdate").style.display = "";
+    } else {
+      status(`up to date (v${r.current})`, "ok");
+    }
   };
+  $("installUpdate").onclick = async () => {
+    $("installUpdate").disabled = true;
+    try {
+      await window.sudovoice.installUpdate(); // app restarts on success
+    } catch (err) {
+      status("update failed: " + emsg(err), "warn");
+      $("installUpdate").disabled = false;
+    }
+  };
+  window.sudovoice.onUpdateProgress((m) => status(m, "warn"));
 
   // ------------------------------------------------------------- account
   const acctStatus = (msg, cls) => { $("acctStatus").textContent = msg; $("acctStatus").className = "hint " + (cls || ""); };

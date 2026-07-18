@@ -1,8 +1,15 @@
-// Fast unit tests for the deterministic dictation logic (no audio, no network).
+// Fast unit tests for the deterministic dictation logic (no audio, no real
+// network — the update test uses a loopback HTTP server).
 // Run: npm run test:units
 const assert = require("assert");
+const http = require("http");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const crypto = require("crypto");
 const commands = require("../src/commands");
 const punctuation = require("../src/punctuation");
+const updates = require("../src/updates");
 
 // ---- voice command detection (Mac VoiceCommandService parity) --------------
 const cases = [
@@ -58,4 +65,35 @@ for (const [input, expected] of pcases) {
   assert.strictEqual(punctuation.apply(input), expected, `apply(${JSON.stringify(input)})`);
 }
 console.log(`punctuation: ${pcases.length} cases OK`);
-console.log("PASS — all unit cases");
+
+// ---- self-update download + sha256 integrity (loopback server) -------------
+(async () => {
+  const payload = crypto.randomBytes(300000);
+  const goodSha = crypto.createHash("sha256").update(payload).digest("hex");
+  const srv = http.createServer((_req, res) => {
+    res.setHeader("content-length", payload.length);
+    res.end(payload);
+  });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const url = `http://127.0.0.1:${srv.address().port}/SudoVoice-Setup.exe`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sv-update-test-"));
+
+  const exe = await updates.downloadInstaller(
+    { downloadURL: url, latest: "9.9.9", sha256: goodSha }, () => {}, dir);
+  assert.ok(fs.existsSync(exe), "verified download must land");
+  assert.strictEqual(fs.statSync(exe).size, payload.length, "size must match");
+
+  let threw = false;
+  try {
+    await updates.downloadInstaller(
+      { downloadURL: url, latest: "9.9.8", sha256: "0".repeat(64) }, () => {}, dir);
+  } catch (err) {
+    threw = /integrity/.test(err.message);
+  }
+  assert.ok(threw, "tampered sha must throw an integrity error");
+  assert.ok(!fs.existsSync(path.join(dir, "SudoVoice-Setup-9.9.8.exe")), "bad exe must not persist");
+  srv.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log("updates: download + integrity OK");
+  console.log("PASS — all unit cases");
+})().catch((err) => { console.error("FAIL:", err.message); process.exit(1); });
