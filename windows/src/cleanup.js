@@ -6,7 +6,7 @@ const PROMPT =
   "speaker's language and meaning exactly. Output ONLY the cleaned text, " +
   "nothing else.";
 
-async function clean(text, { apiKey, model = "gemini-2.5-flash", timeoutMs = 8000 }) {
+async function clean(text, { apiKey, model = "gemini-flash-latest", timeoutMs = 8000 }) {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);

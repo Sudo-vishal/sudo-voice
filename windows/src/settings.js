@@ -20,7 +20,8 @@ const DEFAULTS = {
   cleanup: {
     enabled: false,
     apiKey: "",                    // user-supplied Gemini API key (SUDOVOICE_GEMINI_KEY env also works)
-    model: "gemini-2.5-flash",
+    // Rolling alias — pinned models (e.g. gemini-2.5-flash) 404 for new API keys
+    model: "gemini-flash-latest",
   },
   launchAtLogin: false,
 };
