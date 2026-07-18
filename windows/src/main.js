@@ -14,6 +14,7 @@ const injector = require("./injector");
 const cleanup = require("./cleanup");
 const updates = require("./updates");
 const hotkey = require("./hotkey");
+const supabase = require("./supabase");
 
 let tray = null;
 let indicatorWin = null;
@@ -112,13 +113,25 @@ ipcMain.on("rec:data", async (_evt, wavBuffer) => {
     });
     text = (text || "").trim();
     if (!text || /^\[.*\]$/.test(text)) { setState("idle"); return; } // silence / [BLANK_AUDIO]
+    const rawText = text;
+    let cleanupRan = false;
     if (cfg.cleanup.enabled && cfg.cleanup.apiKey) {
       setState("transcribing", "cleaning");
       text = await cleanup.clean(text, cfg.cleanup);
+      cleanupRan = true;
     }
     setState("typing");
     await injector.typeText(text);
     setState("idle");
+    // Sync to cloud history when signed in (fire-and-forget, never blocks typing).
+    supabase.saveDictation({
+      rawText,
+      cleanedText: cleanupRan && text !== rawText ? text : null,
+      language: cfg.language,
+      model: cfg.model,
+      cleanupModel: cleanupRan ? cfg.cleanup.model : null,
+      durationSeconds: (wavBuffer.byteLength - 44) / 32000, // 16kHz mono 16-bit PCM
+    }).catch((err) => console.error("transcript sync failed:", err.message));
   } catch (err) {
     console.error("dictation failed:", err);
     setState("error", String(err && err.message || err).slice(0, 60));
@@ -155,6 +168,20 @@ ipcMain.handle("whisper:download", async () => {
 });
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("updates:check", () => updates.check(app.getVersion()));
+
+// ------------------------------------------------------------------ account IPC
+ipcMain.handle("auth:state", () => supabase.getState());
+ipcMain.handle("auth:sendCode", (_evt, email) => supabase.sendCode(email));
+ipcMain.handle("auth:verifyCode", async (_evt, { email, code }) => {
+  const state = await supabase.verifyCode(email, code);
+  supabase.checkLicense({ appVersion: app.getVersion(), force: true }).catch(() => {});
+  return state;
+});
+ipcMain.handle("auth:signOut", () => supabase.signOut());
+ipcMain.handle("auth:refreshLicense", async () => {
+  await supabase.checkLicense({ appVersion: app.getVersion(), force: true });
+  return supabase.getState();
+});
 
 // ------------------------------------------------------------------ hotkey
 function rebindHotkey() {
@@ -223,6 +250,9 @@ app.whenReady().then(() => {
   updates.check(app.getVersion()).then((r) => {
     if (r.updateAvailable) tray.setToolTip(`SudoVoice — update v${r.latest} available`);
   }).catch(() => {});
+
+  // Non-blocking license revalidation on launch (24h cache, 7-day offline grace).
+  supabase.checkLicense({ appVersion: app.getVersion() }).catch(() => {});
 });
 
 app.on("window-all-closed", (e) => e.preventDefault?.()); // tray app: keep running

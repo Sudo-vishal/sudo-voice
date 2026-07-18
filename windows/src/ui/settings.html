@@ -89,6 +89,26 @@
   </div>
 
   <div class="panel">
+    <h2>account</h2>
+    <div id="acctOut">
+      <label><span>Email</span><input type="text" id="acctEmail" placeholder="you@example.com" /></label>
+      <button id="acctSend">Send sign-in code</button>
+    </div>
+    <div id="acctCodeStep" style="display:none">
+      <label><span>6-digit code</span><input type="text" id="acctCode" placeholder="123456" maxlength="6" /></label>
+      <button id="acctVerify">Verify &amp; sign in</button>
+      <button class="ghost" id="acctBack">Back</button>
+    </div>
+    <div id="acctIn" style="display:none">
+      <label><span>Signed in as</span><span id="acctWho" style="color:var(--green)"></span></label>
+      <label><span>Plan</span><span id="acctPlan"></span></label>
+      <button class="ghost" id="acctSignOut">Sign out</button>
+    </div>
+    <div id="acctStatus" class="hint"></div>
+    <div class="hint">Sign in to sync your dictation history and unlock Pro across devices.</div>
+  </div>
+
+  <div class="panel">
     <h2>system</h2>
     <label><span>Launch at login</span><input type="checkbox" id="launchAtLogin" /></label>
     <button class="ghost" id="updates">Check for updates</button>
@@ -142,6 +162,65 @@
     const r = await window.sudovoice.checkUpdates();
     status(r.updateAvailable ? `update available: v${r.latest}` : `up to date (v${r.current})`, "ok");
   };
+
+  // ------------------------------------------------------------- account
+  const acctStatus = (msg, cls) => { $("acctStatus").textContent = msg; $("acctStatus").className = "hint " + (cls || ""); };
+  // Electron wraps IPC rejections: "Error invoking remote method 'x': Error: <msg>"
+  const emsg = (err) => String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+  function acctShow(step) { // "out" | "code" | "in"
+    $("acctOut").style.display = step === "out" ? "" : "none";
+    $("acctCodeStep").style.display = step === "code" ? "" : "none";
+    $("acctIn").style.display = step === "in" ? "" : "none";
+  }
+
+  async function refreshAccount(st) {
+    st = st || await window.sudovoice.authState();
+    if (!st.signedIn) { acctShow("out"); return; }
+    acctShow("in");
+    $("acctWho").textContent = st.email;
+    const lic = st.license;
+    $("acctPlan").textContent = lic ? (lic.isPro ? "pro" : lic.plan) : "checking…";
+    $("acctPlan").style.color = lic && lic.isPro ? "var(--green)" : "var(--dim)";
+  }
+
+  $("acctSend").onclick = async () => {
+    const email = $("acctEmail").value.trim();
+    if (!email.includes("@")) { acctStatus("enter a valid email", "warn"); return; }
+    $("acctSend").disabled = true;
+    try {
+      await window.sudovoice.authSendCode(email);
+      acctShow("code");
+      acctStatus(`code sent to ${email} — check your inbox`, "ok");
+    } catch (err) {
+      acctStatus("could not send code: " + emsg(err), "warn");
+    }
+    $("acctSend").disabled = false;
+  };
+
+  $("acctVerify").onclick = async () => {
+    const code = $("acctCode").value.trim();
+    if (!code) { acctStatus("enter the code from your email", "warn"); return; }
+    $("acctVerify").disabled = true;
+    try {
+      const st = await window.sudovoice.authVerifyCode($("acctEmail").value.trim(), code);
+      acctStatus("signed in", "ok");
+      await refreshAccount(st);
+      setTimeout(async () => refreshAccount(), 3000); // license check lands shortly after
+    } catch (err) {
+      acctStatus("sign-in failed: " + emsg(err), "warn");
+    }
+    $("acctVerify").disabled = false;
+  };
+
+  $("acctBack").onclick = () => { acctShow("out"); acctStatus(""); };
+
+  $("acctSignOut").onclick = async () => {
+    await window.sudovoice.authSignOut();
+    acctShow("out");
+    acctStatus("signed out", "ok");
+  };
+
+  refreshAccount();
 
   load();
 </script>
