@@ -118,7 +118,9 @@
   window.sudovoice.onRecStop(async () => {
     try {
       if (!recording && !ctx) { window.sudovoice.sendRecError("no audio captured"); return; }
-      await new Promise((r) => setTimeout(r, 120)); // catch trailing audio
+      // 450ms stop-grace: keep capturing after the stop gesture so the last
+      // word is never clipped (matches the Mac AudioCaptureService).
+      await new Promise((r) => setTimeout(r, 450));
       recording = false;
       emitChunk();
       window.sudovoice.sendRecDone({ seconds: totalMs / 1000, chunks: seq });

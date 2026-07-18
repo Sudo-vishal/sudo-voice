@@ -19,6 +19,7 @@ fs.writeFileSync(path.join(USERDATA, "settings.json"),
 // ---- stubs -----------------------------------------------------------------
 const ipcHandlers = { on: {}, handle: {} };
 const injected = [];   // what injector.typeText received, in order
+const keysSent = [];   // what injector.sendKeys received (voice commands)
 const synced = [];     // what supabase.saveDictation received
 let hotkeyCbs = null;
 const recorderSends = [];
@@ -53,7 +54,10 @@ const origLoad = Module._load;
 Module._load = function (request, parent) {
   if (request === "electron") return electronStub;
   if (request.endsWith("/injector") || request.endsWith("\\injector") || request === "./injector") {
-    return { typeText: async (t) => { injected.push(t); } };
+    return {
+      typeText: async (t) => { injected.push(t); },
+      sendKeys: async (k) => { keysSent.push(k); },
+    };
   }
   if (request === "./supabase") {
     return {
@@ -96,33 +100,43 @@ function synthesizeWav(text, dest) {
     throw new Error("rec:chunk / rec:done handlers not registered");
   }
 
-  console.log("[3/5] synthesizing two spoken chunks via SAPI TTS");
+  console.log("[3/5] synthesizing spoken chunks via SAPI TTS (two sentences + a voice command)");
   const wavA = path.join(ROOT, "chunk-a.wav");
   const wavB = path.join(ROOT, "chunk-b.wav");
+  const wavCmd = path.join(ROOT, "chunk-cmd.wav");
   synthesizeWav("The first sentence streams while I am still speaking", wavA);
   synthesizeWav("And the second sentence follows right after", wavB);
+  synthesizeWav("press enter", wavCmd);
 
-  console.log("[4/5] driving a dictation: start -> chunk A -> chunk B -> stop -> done");
+  console.log("[4/5] driving a dictation: start -> chunk A -> chunk B -> \"press enter\" -> stop -> done");
   await hotkeyCbs.onStart();                       // startDictation
   if (!recorderSends.includes("rec:start")) throw new Error("recorder never told to start");
   ipcHandlers.on["rec:chunk"](null, fs.readFileSync(wavA), { seq: 0 });
   ipcHandlers.on["rec:chunk"](null, fs.readFileSync(wavB), { seq: 1 });
+  ipcHandlers.on["rec:chunk"](null, fs.readFileSync(wavCmd), { seq: 2 });
   await hotkeyCbs.onStop();                        // stopDictation
-  await ipcHandlers.on["rec:done"](null, { seconds: 7.5, chunks: 2 });
+  await ipcHandlers.on["rec:done"](null, { seconds: 7.5, chunks: 3 });
 
   console.log("[5/5] asserting streamed output");
   console.log(`  injected pieces: ${JSON.stringify(injected)}`);
+  console.log(`  keys sent: ${JSON.stringify(keysSent)}`);
   if (injected.length !== 2) throw new Error(`expected 2 injections, got ${injected.length}`);
   const a = injected[0].toLowerCase(), b = injected[1].toLowerCase();
   if (!a.includes("first sentence")) throw new Error(`chunk A wrong/out of order: "${injected[0]}"`);
   if (!b.startsWith(" ") || !b.includes("second sentence")) {
     throw new Error(`chunk B wrong (must be ordered + space-joined): "${injected[1]}"`);
   }
+  if (!keysSent.includes("{ENTER}")) {
+    throw new Error(`"press enter" voice command did not send {ENTER}: ${JSON.stringify(keysSent)}`);
+  }
   if (synced.length !== 1) throw new Error(`expected 1 synced transcript, got ${synced.length}`);
   if (!synced[0].rawText.toLowerCase().includes("second sentence") || synced[0].durationSeconds !== 7.5) {
     throw new Error(`bad sync payload: ${JSON.stringify(synced[0])}`);
   }
+  if (synced[0].rawText.toLowerCase().includes("press enter")) {
+    throw new Error("voice command leaked into the synced transcript");
+  }
   whisper.stopServer();
-  console.log("PASS — chunks transcribed in order, streamed to injector, one synced transcript");
+  console.log("PASS — streaming, in-order injection, voice command executed, clean sync");
   process.exit(0);
 })().catch((err) => { console.error("FAIL:", err.message); whisper.stopServer(); process.exit(1); });

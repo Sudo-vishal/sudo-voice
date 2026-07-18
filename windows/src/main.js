@@ -15,6 +15,15 @@ const cleanup = require("./cleanup");
 const updates = require("./updates");
 const hotkey = require("./hotkey");
 const supabase = require("./supabase");
+const commands = require("./commands");
+const punctuation = require("./punctuation");
+
+// Known whisper hallucinations on silence/noise — dropped outright.
+const HALLUCINATIONS = new Set([
+  ".", "..", "...", "thank you.", "thanks for watching!", "thank you for watching!",
+  "bye.", "bye!", "you", "thanks.", "thank you", "thanks for watching.",
+  "subscribe", "like and subscribe", "mm.", "hmm.", "mm", "hmm", "uh", "um", "ah", "oh",
+]);
 
 let tray = null;
 let indicatorWin = null;
@@ -93,7 +102,7 @@ async function startDictation() {
       return;
     }
   }
-  session = { chain: Promise.resolve(), raw: [], cleaned: [], injected: 0, failed: 0, seconds: 0 };
+  session = { chain: Promise.resolve(), raw: [], cleaned: [], pieces: [], injected: 0, failed: 0, seconds: 0 };
   whisper.startServer(settings.get().model).catch(() => {}); // pre-warm; chunks fall back to CLI if this fails
   setState("listening");
   recorderWin.webContents.send("rec:start");
@@ -103,6 +112,47 @@ async function stopDictation() {
   if (state !== "listening") return;
   setState("transcribing");
   recorderWin.webContents.send("rec:stop");
+}
+
+// Voice commands act on the live document. Edit commands (scratch that /
+// delete word / clear all) backspace over the ledger of pieces this session
+// already injected — the streaming equivalent of the Mac's unspoken buffer.
+async function runCommand(cmd, s) {
+  switch (cmd) {
+    case "stopDictation": stopDictation(); return;
+    case "selectAll": await injector.sendKeys("^a"); return;
+    case "copy": await injector.sendKeys("^c"); return;
+    case "paste": await injector.sendKeys("^v"); return;
+    case "cut": await injector.sendKeys("^x"); return;
+    case "pressEnter": await injector.sendKeys("{ENTER}"); return;
+    case "scratchThat": {
+      const last = s.pieces.pop();
+      if (!last) return;
+      s.raw.pop(); s.cleaned.pop(); s.injected--;
+      await injector.sendKeys(`{BS ${last.length}}`);
+      return;
+    }
+    case "deleteWord": {
+      const last = s.pieces[s.pieces.length - 1];
+      if (!last) return;
+      const tail = (last.match(/\s*\S+\s*$/) || [last])[0];
+      const kept = last.slice(0, last.length - tail.length);
+      if (kept) {
+        s.pieces[s.pieces.length - 1] = kept;
+        s.cleaned[s.cleaned.length - 1] = kept.trim();
+      } else {
+        s.pieces.pop(); s.raw.pop(); s.cleaned.pop(); s.injected--;
+      }
+      await injector.sendKeys(`{BS ${tail.length}}`);
+      return;
+    }
+    case "clearAll": {
+      const total = s.pieces.reduce((n, p) => n + p.length, 0);
+      s.pieces.length = 0; s.raw.length = 0; s.cleaned.length = 0; s.injected = 0;
+      if (total) await injector.sendKeys(`{BS ${total}}`);
+      return;
+    }
+  }
 }
 
 ipcMain.on("rec:chunk", (_evt, wavBuffer, _meta) => {
@@ -116,17 +166,26 @@ ipcMain.on("rec:chunk", (_evt, wavBuffer, _meta) => {
         language: cfg.language,
       });
       text = (text || "").trim();
-      if (!text || /^[\[(].*[\])]$/.test(text)) return; // [BLANK_AUDIO], (wind blowing)…
-      s.raw.push(text);
-      let out = text;
-      if (cfg.cleanup.enabled && cfg.cleanup.apiKey) {
-        out = await cleanup.clean(text, cfg.cleanup);
+      if (!text || /^[\[(*].*[\])*]$/.test(text)) return; // [BLANK_AUDIO], (wind blowing)…
+      if (HALLUCINATIONS.has(text.toLowerCase())) return;
+      if (cfg.voiceCommands) {
+        const cmd = commands.detect(text); // on the RAW transcript, before cleanup
+        if (cmd) { await runCommand(cmd, s); return; }
       }
-      s.cleaned.push(out);
+      // Baseline: deterministic spoken punctuation; AI cleanup replaces it when it succeeds.
+      let out = cfg.smartPunctuation ? punctuation.apply(text) : text;
+      if (cfg.cleanup.enabled && cfg.cleanup.apiKey) {
+        const cleaned = await cleanup.clean(text, cfg.cleanup);
+        if (cleaned === "") return; // model says pure filler
+        if (cleaned !== null) out = cleaned;
+      }
+      if (!out) return;
+      const piece = (s.injected > 0 ? " " : "") + out;
       if (state === "listening") setState("listening", "typing…");
       else if (state === "transcribing") setState("typing");
-      await injector.typeText((s.injected > 0 ? " " : "") + out);
-      s.injected++;
+      await injector.typeText(piece);
+      // Ledger records only what actually landed in the document.
+      s.raw.push(text); s.cleaned.push(out); s.pieces.push(piece); s.injected++;
       if (state === "listening") setState("listening");
     } catch (err) {
       s.failed++;

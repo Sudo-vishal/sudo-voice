@@ -17,11 +17,14 @@ const DEFAULTS = {
   toggleAccel: "Control+Shift+Space",
   model: "base",                   // tiny | base | small (ggml whisper models)
   language: "auto",                // auto | en | hi | ...
+  voiceCommands: true,             // "scratch that", "select all", "press enter", "stop"…
+  smartPunctuation: true,          // say "comma", "period", "new line"…
   cleanup: {
     enabled: false,
     apiKey: "",                    // user-supplied Gemini API key (SUDOVOICE_GEMINI_KEY env also works)
     // Rolling alias — pinned models (e.g. gemini-2.5-flash) 404 for new API keys
     model: "gemini-flash-latest",
+    smartLists: true,              // format spoken enumerations as "- " lists
   },
   launchAtLogin: false,
 };

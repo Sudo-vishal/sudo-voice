@@ -10,7 +10,8 @@
     "start": "electron .",
     "dist": "electron-builder --win nsis --publish never",
     "test:e2e": "node test/e2e.js",
-    "test:streaming": "node test/streaming.js"
+    "test:streaming": "node test/streaming.js",
+    "test:units": "node test/units.js"
   },
   "dependencies": {
     "extract-zip": "^2.0.1",

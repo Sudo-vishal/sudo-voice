@@ -82,10 +82,19 @@
   </div>
 
   <div class="panel">
+    <h2>dictation</h2>
+    <label><span>Voice commands</span><input type="checkbox" id="voiceCommands" /></label>
+    <div class="hint">"scratch that" = delete last, "delete word", "select all", "press enter", "stop"</div>
+    <label><span>Smart punctuation</span><input type="checkbox" id="smartPunctuation" /></label>
+    <div class="hint">Say "comma", "period", "question mark", "new line" etc.</div>
+  </div>
+
+  <div class="panel">
     <h2>ai cleanup <span style="color:var(--dim)">(optional, online)</span></h2>
     <label><span>Enable cleanup</span><input type="checkbox" id="cleanupEnabled" /></label>
     <label><span>Gemini API key</span><input type="password" id="apiKey" placeholder="AIza…" /></label>
-    <div class="hint">Off = 100% offline. On = transcript is sent to Gemini for punctuation/filler cleanup.</div>
+    <label><span>Smart lists</span><input type="checkbox" id="smartLists" /></label>
+    <div class="hint">Off = 100% offline. On = transcript is sent to Gemini for punctuation/filler cleanup. Smart lists formats spoken enumerations as bullet points.</div>
   </div>
 
   <div class="panel">
@@ -124,8 +133,11 @@
     $("holdKey").value = s.holdKey;
     $("model").value = s.model;
     $("language").value = s.language;
+    $("voiceCommands").checked = s.voiceCommands;
+    $("smartPunctuation").checked = s.smartPunctuation;
     $("cleanupEnabled").checked = s.cleanup.enabled;
     $("apiKey").value = s.cleanup.apiKey;
+    $("smartLists").checked = s.cleanup.smartLists;
     $("launchAtLogin").checked = s.launchAtLogin;
     $("version").textContent = "v" + (await window.sudovoice.appVersion());
     refreshStatus();
@@ -146,8 +158,11 @@
   $("holdKey").onchange = (e) => save({ holdKey: e.target.value, hotkeyMode: "hold" });
   $("model").onchange = async (e) => { await save({ model: e.target.value }); refreshStatus(); };
   $("language").onchange = (e) => save({ language: e.target.value });
+  $("voiceCommands").onchange = (e) => save({ voiceCommands: e.target.checked });
+  $("smartPunctuation").onchange = (e) => save({ smartPunctuation: e.target.checked });
   $("cleanupEnabled").onchange = (e) => save({ cleanup: { enabled: e.target.checked } });
   $("apiKey").onchange = (e) => save({ cleanup: { apiKey: e.target.value.trim() } });
+  $("smartLists").onchange = (e) => save({ cleanup: { smartLists: e.target.checked } });
   $("launchAtLogin").onchange = (e) => save({ launchAtLogin: e.target.checked });
 
   $("download").onclick = async () => {
