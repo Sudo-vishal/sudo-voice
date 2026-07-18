@@ -183,3 +183,15 @@ jobs:
           git add website/public/releases/*.json
           git diff --cached --quiet || git commit -m "release: update manifests for v${{ steps.meta.outputs.version }}"
           git push origin main
+
+      # GITHUB_TOKEN pushes never trigger other workflows (anti-recursion),
+      # so deploy-website.yml won't fire for the manifest commit — deploy here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Deploy website with fresh manifests
+        working-directory: website
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
