@@ -1,12 +1,12 @@
 // SudoVoice for Windows — main process.
-// Flow: hold hotkey → record mic → whisper.cpp transcribes offline →
-// optional Gemini cleanup → text is typed at the cursor via paste injection.
+// Flow: hold hotkey → warm mic records → VAD cuts speech into chunks at pauses
+// → each chunk hits the persistent whisper server (model stays loaded) →
+// optional Gemini cleanup → text is typed at the cursor via paste injection,
+// streaming out while you're still talking.
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell, dialog, screen,
 } = require("electron");
 const path = require("path");
-const fs = require("fs");
-const os = require("os");
 
 const settings = require("./settings");
 const whisper = require("./whisper");
@@ -23,7 +23,9 @@ let settingsWin = null;
 
 // idle | setup | listening | transcribing | typing | error
 let state = "idle";
-let pendingAudio = null;
+// One dictation in flight: chunks append to `chain` so transcription order,
+// cleanup, and injection stay serialized even though chunks arrive mid-speech.
+let session = null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => openSettings());
@@ -91,6 +93,8 @@ async function startDictation() {
       return;
     }
   }
+  session = { chain: Promise.resolve(), raw: [], cleaned: [], injected: 0, failed: 0, seconds: 0 };
+  whisper.startServer(settings.get().model).catch(() => {}); // pre-warm; chunks fall back to CLI if this fails
   setState("listening");
   recorderWin.webContents.send("rec:start");
 }
@@ -101,44 +105,62 @@ async function stopDictation() {
   recorderWin.webContents.send("rec:stop");
 }
 
-ipcMain.on("rec:data", async (_evt, wavBuffer) => {
-  if (state !== "transcribing") return;
+ipcMain.on("rec:chunk", (_evt, wavBuffer, _meta) => {
+  if (!session || (state !== "listening" && state !== "transcribing")) return;
   const cfg = settings.get();
-  const wavPath = path.join(os.tmpdir(), `sudovoice-${Date.now()}.wav`);
-  try {
-    fs.writeFileSync(wavPath, Buffer.from(wavBuffer));
-    let text = await whisper.transcribe(wavPath, {
-      model: cfg.model,
-      language: cfg.language,
-    });
-    text = (text || "").trim();
-    if (!text || /^\[.*\]$/.test(text)) { setState("idle"); return; } // silence / [BLANK_AUDIO]
-    const rawText = text;
-    let cleanupRan = false;
-    if (cfg.cleanup.enabled && cfg.cleanup.apiKey) {
-      setState("transcribing", "cleaning");
-      text = await cleanup.clean(text, cfg.cleanup);
-      cleanupRan = true;
+  const s = session;
+  s.chain = s.chain.then(async () => {
+    try {
+      let text = await whisper.transcribeChunk(Buffer.from(wavBuffer), {
+        model: cfg.model,
+        language: cfg.language,
+      });
+      text = (text || "").trim();
+      if (!text || /^[\[(].*[\])]$/.test(text)) return; // [BLANK_AUDIO], (wind blowing)…
+      s.raw.push(text);
+      let out = text;
+      if (cfg.cleanup.enabled && cfg.cleanup.apiKey) {
+        out = await cleanup.clean(text, cfg.cleanup);
+      }
+      s.cleaned.push(out);
+      if (state === "listening") setState("listening", "typing…");
+      else if (state === "transcribing") setState("typing");
+      await injector.typeText((s.injected > 0 ? " " : "") + out);
+      s.injected++;
+      if (state === "listening") setState("listening");
+    } catch (err) {
+      s.failed++;
+      console.error("chunk failed:", err);
     }
-    setState("typing");
-    await injector.typeText(text);
-    setState("idle");
-    // Sync to cloud history when signed in (fire-and-forget, never blocks typing).
-    supabase.saveDictation({
-      rawText,
-      cleanedText: cleanupRan && text !== rawText ? text : null,
-      language: cfg.language,
-      model: cfg.model,
-      cleanupModel: cleanupRan ? cfg.cleanup.model : null,
-      durationSeconds: (wavBuffer.byteLength - 44) / 32000, // 16kHz mono 16-bit PCM
-    }).catch((err) => console.error("transcript sync failed:", err.message));
-  } catch (err) {
-    console.error("dictation failed:", err);
-    setState("error", String(err && err.message || err).slice(0, 60));
+  });
+});
+
+ipcMain.on("rec:done", async (_evt, meta) => {
+  if (!session) return;
+  const s = session;
+  session = null;
+  s.seconds = meta?.seconds || 0;
+  const cfg = settings.get();
+  await s.chain; // all chunks were enqueued before rec:done (IPC is ordered)
+  if (s.raw.length === 0 && s.failed > 0) {
+    setState("error", "transcription failed");
     setTimeout(() => setState("idle"), 2500);
-  } finally {
-    fs.unlink(wavPath, () => {});
+    return;
   }
+  setState("idle");
+  if (s.raw.length === 0) return; // pure silence
+  const cleanupRan = cfg.cleanup.enabled && cfg.cleanup.apiKey;
+  const rawText = s.raw.join(" ");
+  const cleanedText = cleanupRan ? s.cleaned.join(" ") : null;
+  // Sync to cloud history when signed in (fire-and-forget).
+  supabase.saveDictation({
+    rawText,
+    cleanedText: cleanedText !== rawText ? cleanedText : null,
+    language: cfg.language,
+    model: cfg.model,
+    cleanupModel: cleanupRan ? cfg.cleanup.model : null,
+    durationSeconds: s.seconds,
+  }).catch((err) => console.error("transcript sync failed:", err.message));
 });
 
 ipcMain.on("rec:error", (_evt, msg) => {
@@ -154,6 +176,9 @@ ipcMain.handle("settings:set", (_evt, patch) => {
     app.setLoginItemSettings({ openAtLogin: next.launchAtLogin });
   }
   if ("hotkeyMode" in patch || "toggleAccel" in patch) rebindHotkey();
+  if ("model" in patch && whisper.isReady(next.model)) {
+    whisper.startServer(next.model).catch(() => {}); // swap the warm model
+  }
   return next;
 });
 ipcMain.handle("whisper:status", () => whisper.status(settings.get().model));
@@ -164,6 +189,7 @@ ipcMain.handle("whisper:download", async () => {
     }
     setState(state === "idle" ? "idle" : state, msg);
   });
+  whisper.startServer(settings.get().model).catch(() => {});
   return whisper.status(settings.get().model);
 });
 ipcMain.handle("app:version", () => app.getVersion());
@@ -253,7 +279,12 @@ app.whenReady().then(() => {
 
   // Non-blocking license revalidation on launch (24h cache, 7-day offline grace).
   supabase.checkLicense({ appVersion: app.getVersion() }).catch(() => {});
+
+  // Warm the whisper server so the first dictation transcribes instantly.
+  if (whisper.isReady(settings.get().model)) {
+    whisper.startServer(settings.get().model).catch(() => {});
+  }
 });
 
 app.on("window-all-closed", (e) => e.preventDefault?.()); // tray app: keep running
-app.on("before-quit", () => hotkey.unbind());
+app.on("before-quit", () => { hotkey.unbind(); whisper.stopServer(); });

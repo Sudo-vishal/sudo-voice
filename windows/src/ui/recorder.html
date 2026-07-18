@@ -3,8 +3,21 @@
 <head><meta charset="utf-8" /></head>
 <body>
 <script>
-  // Hidden recorder: mic → 16kHz mono Float32 → WAV → main process.
-  let ctx = null, stream = null, node = null, chunks = [];
+  // Hidden recorder: persistent warm mic + VAD chunking.
+  // Speech is cut at natural pauses (>=600ms of silence) and each chunk is sent
+  // to main immediately, so transcription overlaps speaking instead of waiting
+  // for the hotkey release. The mic pipeline stays open for WARM_MS after the
+  // last dictation so back-to-back dictations start instantly.
+  const WARM_MS = 60000;
+  const SILENCE_CUT_MS = 600;   // pause length that closes a chunk
+  const MIN_SPEECH_MS = 300;    // don't emit chunks with less voiced audio
+  const MAX_CHUNK_MS = 15000;   // force a cut so no chunk grows unbounded
+  const PREROLL_MS = 250;       // silence kept before speech onset
+
+  let ctx = null, stream = null, node = null, warmTimer = null;
+  let recording = false;
+  let frames = [], seq = 0, chunkMs = 0, voicedMs = 0, silenceMs = 0, totalMs = 0;
+  let noiseFloor = 0.004;       // adaptive; threshold = max(0.006, 3x floor)
 
   const WORKLET_URL = URL.createObjectURL(new Blob([`
     class PCMCollector extends AudioWorkletProcessor {
@@ -17,30 +30,63 @@
     registerProcessor("pcm-collector", PCMCollector);
   `], { type: "application/javascript" }));
 
-  async function start() {
-    chunks = [];
+  async function ensurePipeline() {
+    clearTimeout(warmTimer);
+    if (ctx) { if (ctx.state === "suspended") await ctx.resume(); return; }
     stream = await navigator.mediaDevices.getUserMedia({
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     ctx = new AudioContext({ sampleRate: 16000 });
     await ctx.audioWorklet.addModule(WORKLET_URL);
     node = new AudioWorkletNode(ctx, "pcm-collector");
-    node.port.onmessage = (e) => chunks.push(e.data);
+    node.port.onmessage = (e) => onFrame(e.data);
     ctx.createMediaStreamSource(stream).connect(node);
   }
 
-  async function stop() {
-    if (!ctx) return null;
-    await new Promise((r) => setTimeout(r, 120)); // catch trailing audio
+  function releasePipeline() {
+    if (!ctx) return;
     node && node.disconnect();
     stream && stream.getTracks().forEach((t) => t.stop());
-    await ctx.close();
-    const total = chunks.reduce((n, c) => n + c.length, 0);
-    const pcm = new Float32Array(total);
-    let off = 0;
-    for (const c of chunks) { pcm.set(c, off); off += c.length; }
-    ctx = stream = node = null; chunks = [];
-    return encodeWav(pcm, 16000);
+    ctx.close();
+    ctx = stream = node = null;
+  }
+
+  function rms(f32) {
+    let s = 0;
+    for (let i = 0; i < f32.length; i++) s += f32[i] * f32[i];
+    return Math.sqrt(s / f32.length);
+  }
+
+  function onFrame(f32) {
+    if (!recording) return;
+    const ms = (f32.length / 16000) * 1000;
+    frames.push(f32); chunkMs += ms; totalMs += ms;
+    const threshold = Math.max(0.006, noiseFloor * 3);
+    if (rms(f32) >= threshold) {
+      voicedMs += ms; silenceMs = 0;
+    } else {
+      silenceMs += ms;
+      noiseFloor = noiseFloor * 0.995 + rms(f32) * 0.005;
+    }
+    if ((silenceMs >= SILENCE_CUT_MS && voicedMs >= MIN_SPEECH_MS) || chunkMs >= MAX_CHUNK_MS) {
+      emitChunk();
+    } else if (silenceMs >= 2000 && voicedMs < MIN_SPEECH_MS) {
+      // Long pure silence: drop the dead air, keep a short pre-roll for onset.
+      const keep = Math.ceil((PREROLL_MS / 1000) * 16000 / 128);
+      frames = frames.slice(-keep);
+      chunkMs = frames.length * (128 / 16000) * 1000;
+    }
+  }
+
+  function emitChunk() {
+    if (voicedMs >= MIN_SPEECH_MS && frames.length) {
+      const total = frames.reduce((n, c) => n + c.length, 0);
+      const pcm = new Float32Array(total);
+      let off = 0;
+      for (const c of frames) { pcm.set(c, off); off += c.length; }
+      window.sudovoice.sendRecChunk(encodeWav(pcm, 16000), { seq: seq++ });
+    }
+    frames = []; chunkMs = 0; voicedMs = 0; silenceMs = 0;
   }
 
   function encodeWav(f32, rate) {
@@ -60,15 +106,26 @@
   }
 
   window.sudovoice.onRecStart(async () => {
-    try { await start(); }
-    catch (err) { window.sudovoice.sendRecError("mic: " + err.message); }
+    try {
+      frames = []; seq = 0; chunkMs = 0; voicedMs = 0; silenceMs = 0; totalMs = 0;
+      await ensurePipeline();
+      recording = true;
+    } catch (err) {
+      window.sudovoice.sendRecError("mic: " + err.message);
+    }
   });
+
   window.sudovoice.onRecStop(async () => {
     try {
-      const wav = await stop();
-      if (wav) window.sudovoice.sendRecData(wav);
-      else window.sudovoice.sendRecError("no audio captured");
-    } catch (err) { window.sudovoice.sendRecError("rec: " + err.message); }
+      if (!recording && !ctx) { window.sudovoice.sendRecError("no audio captured"); return; }
+      await new Promise((r) => setTimeout(r, 120)); // catch trailing audio
+      recording = false;
+      emitChunk();
+      window.sudovoice.sendRecDone({ seconds: totalMs / 1000, chunks: seq });
+      warmTimer = setTimeout(releasePipeline, WARM_MS);
+    } catch (err) {
+      window.sudovoice.sendRecError("rec: " + err.message);
+    }
   });
 </script>
 </body>

@@ -6,7 +6,8 @@ contextBridge.exposeInMainWorld("sudovoice", {
   // recorder
   onRecStart: (cb) => ipcRenderer.on("rec:start", cb),
   onRecStop: (cb) => ipcRenderer.on("rec:stop", cb),
-  sendRecData: (buf) => ipcRenderer.send("rec:data", buf),
+  sendRecChunk: (buf, meta) => ipcRenderer.send("rec:chunk", buf, meta),
+  sendRecDone: (meta) => ipcRenderer.send("rec:done", meta),
   sendRecError: (msg) => ipcRenderer.send("rec:error", msg),
   // settings
   getSettings: () => ipcRenderer.invoke("settings:get"),
