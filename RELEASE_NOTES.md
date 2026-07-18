@@ -1,15 +1,22 @@
-## SudoVoice v2.6.0 — the cross-platform release
+## SudoVoice v3.0.0 — insert-once dictation
 
-**Windows app launches.** Hold Right Ctrl, speak, release — your words are typed at your cursor in any app. 100% offline (whisper.cpp on-device), system tray, floating terminal indicator, optional AI cleanup with your own Gemini key.
+The Mac app gets a new dictation engine and a home screen, merged from upstream and carrying the full SudoVoice identity and cloud backend.
 
-**All three platforms, one release:**
-- `SudoVoice-Setup.exe` — Windows 10/11 x64 (unsigned v1: SmartScreen → "More info" → "Run anyway")
-- `SudoVoice.dmg` — macOS 14+ Apple Silicon (unsigned: right-click → Open the first time)
-- `SudoVoice.apk` — Android 8+ (sideload; debug-signed preview)
+**New engine (macOS):**
+- **Insert-once dictation** — your document is touched exactly once per dictation. No more mid-session patching, flicker, or residue.
+- **450ms stop-grace window** — the last words you speak are always captured.
+- **Offline-first model loading** — cached Whisper models load with zero network calls.
+- Whisper models moved to Application Support — no more Documents-folder permission dialog (existing models migrate automatically).
 
-**Also in this release:**
-- CI now builds every platform on every push; releases are fully automated
-- Website: OS-aware downloads, /docs, /changelog
-- Optional cloud layer (Supabase + Razorpay) scaffolded for accounts & Pro licensing
+**New features (macOS):**
+- **Home tab** — words dictated, WPM, day streak, weekly chart, recent dictations.
+- **Groq cloud transcription** (optional) — whole-session cloud transcription with your own key; local Whisper stays the default.
+- Voice commands: "stop", "select all", "press enter". Re-paste last dictation with ⌃⇧⌘V.
 
-First run downloads the Whisper model (~142 MB, one time). Your voice never leaves your device.
+**Fixes:**
+- AI cleanup no longer translates Hinglish/Hindi — your language is preserved.
+- Cleanup output validated: chatbot leaks, length blow-ups, and stray newlines rejected.
+- Failed pastes leave the transcript on your clipboard with a notification.
+- Smart list formatting, newline-safe paste delivery, relative timestamps.
+
+**All platforms:** Windows installer, Android APK, and the Chrome extension zip ship with this release. Sign-in + Pro licensing run on the live SudoVoice backend.

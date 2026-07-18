@@ -3,6 +3,9 @@ import Accelerate
 import CoreAudio
 
 final class AudioCaptureService {
+    /// Keep capturing briefly after the stop gesture so the user's last word is not clipped.
+    private static let stopGraceMs: UInt64 = 450
+
     private var audioEngine = AVAudioEngine()
     private var audioConverter: AVAudioConverter?
     private let targetFormat: AVAudioFormat
@@ -10,6 +13,10 @@ final class AudioCaptureService {
     // Accumulation
     private var accumulatedSamples: [Float] = []
     private var accumulatedDuration: TimeInterval = 0
+    private var retainFullSessionAudio = false
+    private var retainedSessionSamples: [Float] = []
+    private var retainedSessionExceededLimit = false
+    private static let maxRetainedSessionSamples = 16000 * 60 * 5
     private let lock = NSLock()
 
     // Smart VAD — pause detection
@@ -21,11 +28,17 @@ final class AudioCaptureService {
 
     /// Configure VAD thresholds — call before startRecording
     func configureForCloudMode(_ cloud: Bool) {
+        lock.lock()
+        retainFullSessionAudio = cloud
+        retainedSessionSamples.removeAll(keepingCapacity: cloud)
+        retainedSessionExceededLimit = false
+        lock.unlock()
+
         if cloud {
-            // Cloud: short chunks for near real-time feel
-            silencePauseThreshold = 0.15 // 150ms pause = send immediately
-            minChunkDuration = 0.3       // 0.3s min — even single words work
-            maxChunkDuration = 3.0       // 3s max — halves the wait time
+            // Cloud audio is retained as one session and sent once at stop.
+            silencePauseThreshold = 0.8
+            minChunkDuration = 2.0
+            maxChunkDuration = 12.0
         } else {
             // Local (WhisperKit): needs longer chunks for accuracy
             silencePauseThreshold = 0.8  // 800ms pause
@@ -36,8 +49,6 @@ final class AudioCaptureService {
 
     // Callbacks
     private var onChunkReady: (([Float]) -> Void)?
-    /// Streaming mode: fires for every converted buffer (no VAD batching)
-    var onAudioStream: (([Float]) -> Void)?
 
     // Reconnection state
     private var lastChunkDuration: Double = 2.0
@@ -312,8 +323,13 @@ final class AudioCaptureService {
         watchdogTimer = nil
     }
 
-    /// Stop recording and return any remaining accumulated audio
-    func stopRecording() -> [Float]? {
+    /// Stop after the grace window and return all remaining accumulated audio.
+    @MainActor
+    func stopRecording() async -> [Float]? {
+        let graceStartedAt = Date()
+        try? await Task.sleep(nanoseconds: Self.stopGraceMs * 1_000_000)
+        logToFile("Audio stop grace: \(Int(Date().timeIntervalSince(graceStartedAt) * 1000))ms captured before teardown")
+
         isCurrentlyRecording = false
         reconnectWorkItem?.cancel()
         stopWatchdog()
@@ -327,6 +343,17 @@ final class AudioCaptureService {
         lock.unlock()
 
         return remaining
+    }
+
+    /// Consume the full cloud session captured at 16kHz mono.
+    /// Sessions over five minutes are flagged so callers can reject instead of truncating.
+    func takeRetainedCloudSession() -> (samples: [Float], exceededLimit: Bool) {
+        lock.lock()
+        let result = (retainedSessionSamples, retainedSessionExceededLimit)
+        retainedSessionSamples.removeAll()
+        retainedSessionExceededLimit = false
+        lock.unlock()
+        return result
     }
 
     // MARK: - Private
@@ -350,11 +377,17 @@ final class AudioCaptureService {
         let samples = Array(UnsafeBufferPointer(start: channelData, count: frameCount))
         lastBufferTime = Date()  // Watchdog heartbeat
 
-        // Streaming mode: forward every buffer directly (Gemini Live handles VAD)
-        if let streamCallback = onAudioStream {
-            streamCallback(samples)
-            return
+        lock.lock()
+        if retainFullSessionAudio {
+            let remainingCapacity = Self.maxRetainedSessionSamples - retainedSessionSamples.count
+            if remainingCapacity > 0 {
+                retainedSessionSamples.append(contentsOf: samples.prefix(remainingCapacity))
+            }
+            if samples.count > remainingCapacity {
+                retainedSessionExceededLimit = true
+            }
         }
+        lock.unlock()
 
         let bufferDuration = Double(frameCount) / targetFormat.sampleRate
 

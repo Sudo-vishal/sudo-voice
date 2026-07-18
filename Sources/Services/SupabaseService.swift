@@ -199,21 +199,21 @@ final class SupabaseService {
     }
 
     /// Fetch the signed-in user's transcripts (most recent first).
-    /// Returns empty array if not signed in or on error.
-    func fetchMyTranscripts(limit: Int = 50) async -> [TranscriptRow] {
-        guard let client else { return [] }
+    /// Throws on connectivity/auth errors so callers can distinguish offline fallback
+    /// from a real signed-in account with no transcripts.
+    func fetchMyTranscripts(limit: Int = 50) async throws -> [TranscriptRow] {
+        guard let client else { throw SupabaseServiceError.unavailable }
         do {
-            let rows: [TranscriptRow] = try await client
+            return try await client
                 .from("transcripts")
-                .select("id, title, raw_text, cleaned_text, language, duration_seconds, created_at")
+                .select("id, title, raw_text, cleaned_text, language, duration_seconds, word_count, char_count, created_at")
                 .order("created_at", ascending: false)
                 .limit(limit)
                 .execute()
                 .value
-            return rows
         } catch {
             logToFile("SupabaseService: fetch transcripts failed — \(error.localizedDescription)")
-            return []
+            throw error
         }
     }
 
@@ -241,6 +241,16 @@ final class SupabaseService {
         let cleaned_text: String?
         let language: String?
         let duration_seconds: Int?
+        let word_count: Int?
+        let char_count: Int?
         let created_at: Date
+    }
+}
+
+enum SupabaseServiceError: LocalizedError {
+    case unavailable
+
+    var errorDescription: String? {
+        "Cloud history is unavailable."
     }
 }

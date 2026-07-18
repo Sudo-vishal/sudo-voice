@@ -2,21 +2,32 @@ import SwiftUI
 import Carbon
 
 private enum SettingsTab: String, Hashable {
-    case general, models, llm, history, about, account, license
+    case home, general, models, llm, history, about, account, license
 }
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var selectedTab: SettingsTab = {
+        let defaults = UserDefaults.standard
+        if defaults.integer(forKey: "settingsTabSchemaVersion") < 1 {
+            defaults.set(1, forKey: "settingsTabSchemaVersion")
+            defaults.set(SettingsTab.home.rawValue, forKey: "settingsLastTab")
+            return .home
+        }
         if let raw = UserDefaults.standard.string(forKey: "settingsLastTab"),
            let tab = SettingsTab(rawValue: raw) {
             return tab
         }
-        return .general
+        return .home
     }()
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            HomeTab()
+                .environment(appState)
+                .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(SettingsTab.home)
+
             GeneralTab()
                 .environment(appState)
                 .tabItem { Label("General", systemImage: "gear") }
@@ -51,7 +62,7 @@ struct SettingsView: View {
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
                 .tag(SettingsTab.account)
         }
-        .frame(minWidth: 760, minHeight: 480)
+        .frame(minWidth: 880, minHeight: 620)
         .tint(SVTheme.green)
         .preferredColorScheme(.dark)
         .onReceive(NotificationCenter.default.publisher(for: .openLicenseSettings)) { _ in
@@ -115,21 +126,48 @@ private struct GeneralTab: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Hotkey
                 GroupBox("Recording") {
-                    HStack {
-                        Text("Hotkey:")
-                        Text(appState.hotkeyService?.displayString ?? "Cmd + D")
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.quaternary)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .font(.system(.body, design: .monospaced))
-                        Spacer()
-                        HotkeyPicker(appState: appState)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Hotkey:")
+                            Text(appState.hotkeyService?.displayString ?? "Cmd + D")
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .font(.system(.body, design: .monospaced))
+                            Spacer()
+                            HotkeyPicker(appState: appState)
+                        }
+                        Text("Re-paste last dictation: ⌃⇧⌘V")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
 
-                    Toggle("Hindi Mode (Hindi/Hinglish → English)", isOn: $state.hindiMode)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Devanagari Hindi (शुद्ध हिंदी)", isOn: $state.hindiMode)
+                        Text("Pure Hindi dictation in Devanagari script. Keep OFF for Hinglish or English — auto-detect handles mixed speech best.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle("Auto-type transcribed text", isOn: $state.autoTypeEnabled)
+                }
+
+                GroupBox("Transcription") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Cloud transcription", isOn: $state.useCloudTranscription)
+
+                        Text("Transcribes once at stop via Groq with your API key (fast cloud model). Off = 100% on-device, audio never leaves your Mac.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if appState.groqApiKey.isEmpty {
+                            Label("Add a Groq API key in AI Cleanup tab first", systemImage: "exclamationmark.triangle")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
 
                 GroupBox("Push-to-Talk") {
@@ -238,6 +276,12 @@ private struct LLMTab: View {
                 GroupBox("Provider") {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Enable LLM text cleanup", isOn: $state.llmCleanupEnabled)
+
+                        Toggle("Smart lists", isOn: $state.smartListsEnabled)
+                        Text("Format spoken lists as bullet points (needs AI cleanup on)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
 
                         Picker("Provider", selection: $state.selectedLLMProvider) {
                             ForEach(LLMProvider.allCases) { provider in
@@ -697,7 +741,7 @@ private struct LicenseTab: View {
 
                 GroupBox("Get Pro") {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Gemini Live streaming, and unlimited transcription.")
+                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Groq cloud transcription, and unlimited transcription.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Link("sudovoice.com/pricing", destination: URL(string: "https://sudovoice.com/pricing")!)

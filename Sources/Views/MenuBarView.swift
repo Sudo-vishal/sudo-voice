@@ -136,7 +136,7 @@ struct MenuBarView: View {
             set: { appState.useCloudTranscription = $0 }
         ))
 
-        Toggle("Hindi Mode", isOn: Binding(
+        Toggle("Devanagari Hindi (शुद्ध हिंदी)", isOn: Binding(
             get: { appState.hindiMode },
             set: { appState.hindiMode = $0 }
         ))
