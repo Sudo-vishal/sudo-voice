@@ -631,6 +631,7 @@ struct PermissionBadge: View {
 
 private struct LicenseTab: View {
     @Environment(AppState.self) private var appState
+    @State private var licenseKey = ""
     @State private var isActivating = false
     @State private var statusMessage: String?
     @State private var statusIsError = false
@@ -655,8 +656,6 @@ private struct LicenseTab: View {
     }
 
     var body: some View {
-        @Bindable var state = appState
-
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 GroupBox("Status") {
@@ -683,7 +682,7 @@ private struct LicenseTab: View {
                 GroupBox("License Key") {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            SecureField("Paste your license key", text: $state.licenseKey)
+                            SecureField("Paste your license key", text: $licenseKey)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                                 .disabled(isActivating)
@@ -692,7 +691,7 @@ private struct LicenseTab: View {
                                 activateKey()
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(state.licenseKey.isEmpty || isActivating)
+                            .disabled(licenseKey.isEmpty || isActivating)
                         }
 
                         if let msg = statusMessage {
@@ -751,6 +750,9 @@ private struct LicenseTab: View {
             }
             .padding()
         }
+        .onAppear {
+            licenseKey = appState.licenseKey
+        }
     }
 
     private func deactivate() {
@@ -766,15 +768,17 @@ private struct LicenseTab: View {
                 if result.success {
                     appState.isPro = false
                     appState.licenseKey = ""
+                    licenseKey = ""
                 }
             }
         }
     }
 
     private func activateKey() {
-        let key = appState.licenseKey
+        let key = licenseKey
         guard !key.isEmpty else { return }
 
+        appState.licenseKey = key
         isActivating = true
         statusMessage = nil
 

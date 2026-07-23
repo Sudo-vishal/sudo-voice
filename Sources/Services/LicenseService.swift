@@ -1,11 +1,10 @@
 import Foundation
 
-/// Validates Pro licenses via Lemon Squeezy API.
+/// Validates Pro licenses via Dodo Payments' public License API.
 /// Caches result locally, re-checks every 24h, 7-day offline grace period.
 final class LicenseService {
 
-    private let validateURL = "https://api.lemonsqueezy.com/v1/licenses/validate"
-    private let activateURL = "https://api.lemonsqueezy.com/v1/licenses/activate"
+    private let baseURL = "https://test.dodopayments.com"
 
     // MARK: - Cache Keys
 
@@ -53,14 +52,16 @@ final class LicenseService {
     func activate(_ key: String) async -> (success: Bool, message: String) {
         guard !key.isEmpty else { return (false, "No license key provided") }
 
-        var request = URLRequest(url: URL(string: activateURL)!)
+        var request = URLRequest(url: URL(string: "\(baseURL)/licenses/activate")!)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 10
 
         let instanceName = Host.current().localizedName ?? "Mac"
-        let body = "license_key=\(key)&instance_name=\(instanceName)"
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "license_key": key,
+            "name": instanceName
+        ])
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -68,76 +69,59 @@ final class LicenseService {
                 return (false, "Invalid response")
             }
 
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return (false, "Bad response format")
-            }
-
-            let activated = json["activated"] as? Bool ?? false
-            let msg = json["error"] as? String ?? (activated ? "License activated!" : "Activation failed")
-
-            if activated {
+            if http.statusCode == 201,
+               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let instanceID = json["id"] as? String {
                 // Store activation ID for deactivation later
-                if let instance = json["instance"] as? [String: Any],
-                   let id = instance["id"] as? String {
-                    UserDefaults.standard.set(id, forKey: Keys.activationID)
-                }
+                UserDefaults.standard.set(instanceID, forKey: Keys.activationID)
                 cacheResult(true)
                 logToFile("License: activated successfully")
-            } else if http.statusCode == 200 {
-                // Already activated — validate instead
-                let valid = (json["valid"] as? Bool) ?? false
-                if valid {
-                    cacheResult(true)
-                    logToFile("License: already activated, valid")
-                    return (true, "License already activated")
-                }
+                return (true, "License activated!")
             }
 
-            return (activated, msg)
+            return (false, errorMessage(from: data, fallback: "Activation failed"))
         } catch {
             logToFile("License activation error: \(error.localizedDescription)")
             return (false, "Network error: \(error.localizedDescription)")
         }
     }
 
-    /// Deactivate a license on this device. Frees the device slot on the LS license
-    /// (3-device limit means user needs to deactivate before activating on a 4th Mac).
+    /// Deactivate a license on this device. Frees one of the license's configured device slots.
     /// Clears all cache keys on success — next launch starts cleanly free-tier.
     func deactivate(_ key: String) async -> (success: Bool, message: String) {
         guard !key.isEmpty else { return (false, "No license key provided") }
 
-        let deactivateURL = "https://api.lemonsqueezy.com/v1/licenses/deactivate"
         let instanceID = UserDefaults.standard.string(forKey: Keys.activationID) ?? ""
         guard !instanceID.isEmpty else {
             return (false, "No activation ID — already deactivated?")
         }
 
-        var request = URLRequest(url: URL(string: deactivateURL)!)
+        var request = URLRequest(url: URL(string: "\(baseURL)/licenses/deactivate")!)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 10
 
-        let body = "license_key=\(key)&instance_id=\(instanceID)"
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "license_key": key,
+            "license_key_instance_id": instanceID
+        ])
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return (false, "Bad response format")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                return (false, "Invalid response")
             }
 
-            let deactivated = json["deactivated"] as? Bool ?? false
-            let msg = json["error"] as? String ?? (deactivated ? "License deactivated" : "Deactivation failed")
-
-            if deactivated {
+            if http.statusCode == 200 {
                 // Full cache reset — next launch starts cleanly free-tier.
                 UserDefaults.standard.removeObject(forKey: Keys.activationID)
                 UserDefaults.standard.removeObject(forKey: Keys.cachedValid)
                 UserDefaults.standard.removeObject(forKey: Keys.lastValidation)
                 logToFile("License: deactivated successfully")
+                return (true, "License deactivated")
             }
 
-            return (deactivated, msg)
+            return (false, errorMessage(from: data, fallback: "Deactivation failed"))
         } catch {
             logToFile("License deactivation error: \(error.localizedDescription)")
             return (false, "Network error: \(error.localizedDescription)")
@@ -147,31 +131,50 @@ final class LicenseService {
     // MARK: - Online Validation
 
     private func validateOnline(_ key: String) async throws -> Bool {
-        var request = URLRequest(url: URL(string: validateURL)!)
+        var request = URLRequest(url: URL(string: "\(baseURL)/licenses/validate")!)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 10
 
         let instanceID = UserDefaults.standard.string(forKey: Keys.activationID) ?? ""
-        var body = "license_key=\(key)"
+        var body: [String: Any] = ["license_key": key]
         if !instanceID.isEmpty {
-            body += "&instance_id=\(instanceID)"
+            body["license_key_instance_id"] = instanceID
         }
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LicenseError.badResponse
         }
 
         let valid = json["valid"] as? Bool ?? false
-        let status = (json["license_key"] as? [String: Any])?["status"] as? String ?? "unknown"
 
-        logToFile("License: online validation — valid=\(valid), status=\(status)")
+        logToFile("License: online validation — valid=\(valid)")
 
-        // Active or inactive (not expired/disabled) = valid
-        return valid && (status == "active" || status == "inactive")
+        return valid
+    }
+
+    private func errorMessage(from data: Data, fallback: String) -> String {
+        guard !data.isEmpty,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return fallback
+        }
+
+        if let message = json["message"] as? String {
+            return message
+        }
+        if let error = json["error"] as? String {
+            return error
+        }
+        if let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String {
+            return message
+        }
+        return fallback
     }
 
     // MARK: - Cache

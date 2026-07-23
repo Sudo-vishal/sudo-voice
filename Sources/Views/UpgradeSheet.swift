@@ -31,7 +31,7 @@ struct UpgradeSheet: View {
             VStack(spacing: 8) {
                 Button(action: { openExternal("https://indianwhisper.com/pricing") }) {
                     HStack {
-                        Text("Get Pro — $12/month").font(.body.bold())
+                        Text("Get Pro — ₹499/month").font(.body.bold())
                         Spacer()
                         Image(systemName: "arrow.up.right")
                     }
@@ -46,7 +46,7 @@ struct UpgradeSheet: View {
 
                 Button(action: { openExternal("https://indianwhisper.com/pricing#lifetime") }) {
                     HStack {
-                        Text("Get Lifetime — $249").font(.body.bold())
+                        Text("Get Lifetime — ₹4,999").font(.body.bold())
                         Spacer()
                         Image(systemName: "arrow.up.right")
                     }
