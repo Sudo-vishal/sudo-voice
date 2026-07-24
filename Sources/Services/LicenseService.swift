@@ -4,7 +4,7 @@ import Foundation
 /// Caches result locally, re-checks every 24h, 7-day offline grace period.
 final class LicenseService {
 
-    private let baseURL = "https://test.dodopayments.com"
+    private let baseURL = "https://live.dodopayments.com"
 
     // MARK: - Cache Keys
 
