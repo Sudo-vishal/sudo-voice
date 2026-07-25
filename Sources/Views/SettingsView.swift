@@ -9,6 +9,9 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var selectedTab: SettingsTab = {
         let defaults = UserDefaults.standard
+        // A pending indianwhisper://activate link always wins the first tab —
+        // otherwise a first-ever launch would land on Home and hide the result.
+        if LicenseActivationInbox.shared.hasPending { return .license }
         if defaults.integer(forKey: "settingsTabSchemaVersion") < 1 {
             defaults.set(1, forKey: "settingsTabSchemaVersion")
             defaults.set(SettingsTab.home.rawValue, forKey: "settingsLastTab")
@@ -752,6 +755,40 @@ private struct LicenseTab: View {
         }
         .onAppear {
             licenseKey = appState.licenseKey
+            consumeDeepLinkActivation()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .licenseActivationRequested)) { _ in
+            consumeDeepLinkActivation()
+        }
+    }
+
+    /// One-click activation (indianwhisper://activate?key=…). Fills the field and runs
+    /// the exact same path as the Activate button, so success/error states are identical.
+    /// Drained from both `onAppear` and the notification — whichever lands first wins,
+    /// and the inbox only hands the request over once.
+    private func consumeDeepLinkActivation() {
+        guard !isActivating, let request = LicenseActivationInbox.shared.take() else { return }
+
+        switch request {
+        case .key(let key):
+            licenseKey = key
+            statusMessage = nil
+            isActivating = true
+            Task {
+                // Cold launch (link started the app): AppState.setup() builds
+                // licenseService asynchronously, so wait for it — up to 15s — instead
+                // of failing instantly with "License service unavailable".
+                for _ in 0..<60 where appState.licenseService == nil {
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                }
+                await MainActor.run {
+                    isActivating = false
+                    activateKey()
+                }
+            }
+        case .invalidLink(let message):
+            statusMessage = message
+            statusIsError = true
         }
     }
 

@@ -28,6 +28,9 @@ let sharedAppState = AppState()
 @main
 struct IndianWhisperApp: App {
 
+    /// Receives indianwhisper://activate?key=… opens (see URLSchemeService.swift).
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
         logToFile("App init called")

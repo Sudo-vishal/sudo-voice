@@ -522,6 +522,11 @@ final class AppState {
         resetDailyUsageIfNeeded()
         loadHistory()
 
+        // Built before the permission prompts below: an indianwhisper://activate link
+        // can land seconds after launch, while the mic dialog is still waiting on the
+        // user. Without this the deep link would fail with "License service unavailable".
+        licenseService = LicenseService()
+
         if PermissionService.microphoneStatus() == .notDetermined {
             _ = await PermissionService.requestMicrophonePermission()
         }
@@ -532,7 +537,6 @@ final class AppState {
         audioService = AudioCaptureService()
         autoTypeService = AutoTypeService()
         llmCleanupService = LLMCleanupService()
-        licenseService = LicenseService()
 
         await startAuthObserver()
 
