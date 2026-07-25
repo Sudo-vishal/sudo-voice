@@ -64,7 +64,7 @@ enum OutputMode: String, CaseIterable, Identifiable {
 // MARK: - Free Tier Limits
 
 enum FreeTierLimits {
-    static let minutesPerDay: Double = 60.0    // 60 min/day local transcription
+    static let minutesPerDay: Double = 10.0    // 10 min/day local transcription
     static let llmCleanupsPerDay: Int = 3      // 3 Gemini/Groq cleanups/day
     static let maxDevices: Int = 3             // 3 active devices on a single license
 }

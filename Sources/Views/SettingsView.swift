@@ -668,7 +668,7 @@ private struct LicenseTab: View {
                             Spacer()
                         }
                         if !appState.isPro {
-                            Text("\(Int(appState.freeMinutesRemaining)) of 60 minutes remaining today")
+                            Text("\(Int(appState.freeMinutesRemaining)) of \(Int(FreeTierLimits.minutesPerDay)) minutes remaining today")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text("\(appState.freeLLMCleanupsRemaining) of 3 LLM cleanups remaining today")
@@ -738,7 +738,7 @@ private struct LicenseTab: View {
 
                 GroupBox("Get Pro") {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Unlock all 5 Whisper models, all 7 LLM providers, Groq cloud transcription, and unlimited transcription.")
+                        Text("Unlock all 5 Whisper models, unlimited AI cleanup, Groq cloud transcription, and unlimited transcription.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Link("indianwhisper.com/pricing", destination: URL(string: "https://indianwhisper.com/pricing")!)

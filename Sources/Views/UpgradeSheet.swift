@@ -22,7 +22,7 @@ struct UpgradeSheet: View {
                     .font(.title3.bold())
             }
 
-            Text("60 minutes of voice typing today. Reset at midnight.")
+            Text("\(Int(FreeTierLimits.minutesPerDay)) minutes of voice typing today. Reset at midnight.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
