@@ -19,9 +19,9 @@
     <string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dXFhdnFqaG1xbnZ2aWJiY211Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODk0MzAsImV4cCI6MjA5OTk2NTQzMH0.L56E3lb9c5cqKHQXI27FzsSNHTE_Ge2b5IvNCqCwg1o</string>
 
     <key>CFBundleVersion</key>
-    <string>3.0.0</string>
+    <string>3.1.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.0.0</string>
+    <string>3.1.0</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIconName</key>

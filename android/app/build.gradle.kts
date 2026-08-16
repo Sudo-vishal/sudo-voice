@@ -11,8 +11,8 @@ android {
         applicationId = "com.sudovoice.app"
         minSdk = 26          // Android 8.0 — covers 95%+ devices
         targetSdk = 34
-        versionCode = 3
-        versionName = "3.0.0"
+        versionCode = 4
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,7 +1,7 @@
 {
   "name": "sudovoice",
   "productName": "SudoVoice",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Offline voice-to-text with AI cleanup — speak, AI cleans, types wherever your cursor is.",
   "main": "src/main.js",
   "author": "AiwithVishal",
