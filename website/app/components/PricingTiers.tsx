@@ -1,17 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Reveal from "./Reveal";
 import Spotlight from "./Spotlight";
+import { startCheckout } from "@/app/lib/checkout";
 
-// Payments open soon via Lemon Squeezy. Until then every paid CTA routes to
-// the free download — a dead checkout link costs more trust than honesty does.
-const EARLY_ACCESS_URL = "/#download";
-const LS_URLS = {
-  proMonthly: EARLY_ACCESS_URL,
-  proAnnual: EARLY_ACCESS_URL,
-  lifetime: EARLY_ACCESS_URL,
-} as const;
+// Paid CTAs go through /api/checkout (Razorpay). While payment keys aren't
+// configured the API answers 503 and the buttons render an honest
+// "payments launching soon" state instead of a dead link.
+type PaidPlan = "pro-monthly" | "pro-annual" | "lifetime";
 
 type ProEmphasis = "monthly" | "annual";
 
@@ -73,8 +71,8 @@ const TIERS: Tier[] = [
       "Custom voice commands",
       "3 devices",
     ],
-    ctaLabel: "Free in Early Access",
-    ctaHref: LS_URLS.proMonthly,
+    ctaLabel: "Get Pro Monthly",
+    ctaHref: "#",
     ctaVariant: "primary",
     ctaDataLs: "pro-monthly",
     refundNote: "30-day money-back",
@@ -94,8 +92,8 @@ const TIERS: Tier[] = [
       "Gemini Live + batch processing",
       "3 devices",
     ],
-    ctaLabel: "Free in Early Access",
-    ctaHref: LS_URLS.proAnnual,
+    ctaLabel: "Get Pro Annual",
+    ctaHref: "#",
     ctaVariant: "primary",
     ctaDataLs: "pro-annual",
     refundNote: "30-day money-back",
@@ -113,8 +111,8 @@ const TIERS: Tier[] = [
       "5 devices",
       "No subscription, ever",
     ],
-    ctaLabel: "Free in Early Access",
-    ctaHref: LS_URLS.lifetime,
+    ctaLabel: "Get Lifetime",
+    ctaHref: "#",
     ctaVariant: "primary",
     ctaDataLs: "lifetime",
     refundNote: "30-day money-back",
@@ -123,8 +121,34 @@ const TIERS: Tier[] = [
   },
 ];
 
-export default function PricingTiers() {
+function PricingTiersInner() {
   const [emphasis, setEmphasis] = useState<ProEmphasis>("annual");
+  const router = useRouter();
+  const params = useSearchParams();
+  // idle | busy:<plan> | soon | paid
+  const [payState, setPayState] = useState<string>("idle");
+
+  const buy = async (plan: PaidPlan) => {
+    if (payState.startsWith("busy")) return;
+    setPayState(`busy:${plan}`);
+    const result = await startCheckout(plan, () => setPayState("paid"));
+    if (result.state === "needs-signin") {
+      router.push(`/account?next=checkout&plan=${plan}`);
+      return;
+    }
+    if (result.state === "soon") setPayState("soon");
+    else if (result.state === "error") setPayState("idle");
+    else if (result.state === "opened") setPayState("idle"); // modal owns the flow now
+  };
+
+  // Arriving back from sign-in with ?checkout=<plan> — resume automatically.
+  useEffect(() => {
+    const plan = params.get("checkout");
+    if (plan && ["pro-monthly", "pro-annual", "lifetime"].includes(plan)) {
+      buy(plan as PaidPlan);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isHighlighted = (tier: Tier) =>
     tier.highlightOn === "always" ||
@@ -143,6 +167,17 @@ export default function PricingTiers() {
             </p>
           </div>
         </Reveal>
+
+        {payState === "paid" && (
+          <div className="max-w-xl mx-auto mb-10 glass-card rounded-2xl p-6 text-center border border-[#00E676]/40">
+            <div className="font-mono text-[13px] text-[#00E676] mb-1">$ payment received ✓</div>
+            <p className="text-sm text-[#C6D3E8]">
+              Pro activates within a minute. Check{" "}
+              <a href="/account" className="text-[#00E676] underline underline-offset-4">your account</a>{" "}
+              — your apps pick it up on next launch or sign-in.
+            </p>
+          </div>
+        )}
 
         {/* Annual/Monthly toggle */}
         <Reveal delay={80}>
@@ -227,18 +262,36 @@ export default function PricingTiers() {
                   ))}
                 </ul>
 
-                <a
-                  href={tier.ctaHref}
-                  {...(tier.ctaDataLs ? { "data-ls-product": tier.ctaDataLs } : {})}
-                  {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className={`mt-6 text-sm ${
-                    tier.ctaVariant === "primary"
-                      ? "btn-primary px-5 py-3"
-                      : "btn-ghost px-5 py-3 font-semibold"
-                  }`}
-                >
-                  {tier.ctaLabel}
-                </a>
+                {tier.ctaDataLs ? (
+                  <button
+                    type="button"
+                    onClick={() => buy(tier.ctaDataLs as PaidPlan)}
+                    disabled={payState === "soon" || payState.startsWith("busy")}
+                    className={`mt-6 text-sm ${
+                      payState === "soon"
+                        ? "btn-ghost px-5 py-3 font-mono opacity-70 cursor-default"
+                        : "btn-primary px-5 py-3"
+                    }`}
+                  >
+                    {payState === "soon"
+                      ? "$ payments --launching-soon"
+                      : payState === `busy:${tier.ctaDataLs}`
+                        ? "opening checkout…"
+                        : tier.ctaLabel}
+                  </button>
+                ) : (
+                  <a
+                    href={tier.ctaHref}
+                    {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className={`mt-6 text-sm ${
+                      tier.ctaVariant === "primary"
+                        ? "btn-primary px-5 py-3"
+                        : "btn-ghost px-5 py-3 font-semibold"
+                    }`}
+                  >
+                    {tier.ctaLabel}
+                  </a>
+                )}
 
                 {tier.refundNote && (
                   <div className="mt-3 font-mono text-[11px] text-[#5C6E8A] text-center">
@@ -264,5 +317,15 @@ export default function PricingTiers() {
         </div>
       </div>
     </section>
+  );
+}
+
+import { Suspense } from "react";
+
+export default function PricingTiers() {
+  return (
+    <Suspense fallback={null}>
+      <PricingTiersInner />
+    </Suspense>
   );
 }

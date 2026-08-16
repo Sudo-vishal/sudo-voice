@@ -10,6 +10,7 @@ const LINKS: [string, string][] = [
   ["/#models", "models"],
   ["/blog", "blog"],
   ["/pricing", "pricing"],
+  ["/account", "account"],
 ];
 
 export default function Navbar() {
@@ -35,7 +36,7 @@ export default function Navbar() {
           <LogoMark size={30} />
           <Wordmark className="text-[17px]" />
           <span className="hidden sm:inline ml-1 font-mono text-[11px] px-1.5 py-0.5 rounded border border-[#1C2940] text-[#5C6E8A]">
-            v2.6.0
+            v3.1.0
           </span>
         </a>
 

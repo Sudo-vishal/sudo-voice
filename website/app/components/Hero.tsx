@@ -54,7 +54,7 @@ export default function Hero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00E676] opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00E676]" />
             </span>
-            <span className="font-mono text-[12.5px] text-[#7CFFC4]">v2.6.0 — words appear while you speak</span>
+            <span className="font-mono text-[12.5px] text-[#7CFFC4]">v3.1.0 — words appear while you speak</span>
           </div>
 
           <h1 className="animate-fade-in-up animation-delay-200 headline-glow text-[3.4rem] md:text-[4.6rem] font-bold tracking-[-0.03em] leading-[1.02]">
