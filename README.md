@@ -238,10 +238,12 @@ graph TB
 | `Sources/` | macOS app — Swift, WhisperKit, menu-bar UI |
 | `windows/` | Windows app — Electron, whisper.cpp, tray + push-to-talk |
 | `android/` | Android app — Kotlin, voice IME |
-| `website/` | sudovoice.com — Next.js marketing site + update-check API |
-| `backend/` | Supabase schema + Razorpay webhook edge functions (optional cloud layer) |
+| `extension/` | Chrome extension — voice typing in the browser |
 | `assets/` | App icon and brand assets |
 | `.github/workflows/` | CI: every push builds all 3 platforms; tags publish releases |
+
+The website (sudovoice.com) and cloud backend live in a private repo —
+open-core, n8n style: the apps you run are fully open; the business layer isn't.
 
 ### macOS — Codebase Structure
 

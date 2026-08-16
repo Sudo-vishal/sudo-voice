@@ -1,7 +1,0 @@
-# Real credentials live here after copying .env.example — never commit.
-.env
-.env.*
-!.env.example
-
-# Supabase CLI local state
-supabase/.temp/
