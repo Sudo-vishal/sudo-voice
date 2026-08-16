@@ -10,12 +10,12 @@
 
 Mac · iOS · Android · Windows
 
-[![GitHub](https://img.shields.io/github/stars/Sudo-vishal/SudoVoice?style=social)](https://github.com/Sudo-vishal/SudoVoice)
+[![GitHub](https://img.shields.io/github/stars/Sudo-vishal/sudo-voice?style=social)](https://github.com/Sudo-vishal/sudo-voice)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20|%20macOS%20|%20Android-lightgrey)]()
-[![Build](https://github.com/Sudo-vishal/SudoVoice/actions/workflows/build.yml/badge.svg)](https://github.com/Sudo-vishal/SudoVoice/actions/workflows/build.yml)
+[![Build](https://github.com/Sudo-vishal/sudo-voice/actions/workflows/build.yml/badge.svg)](https://github.com/Sudo-vishal/sudo-voice/actions/workflows/build.yml)
 
-**Download:** [Windows](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice-Setup.exe) · [macOS](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.dmg) · [Android](https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice.apk)
+**Download:** [Windows](https://github.com/Sudo-vishal/sudo-voice/releases/latest/download/SudoVoice-Setup.exe) · [macOS](https://github.com/Sudo-vishal/sudo-voice/releases/latest/download/SudoVoice.dmg) · [Android](https://github.com/Sudo-vishal/sudo-voice/releases/latest/download/SudoVoice.apk)
 
 *by [AiwithVishal](https://github.com/Sudo-vishal)*
 
@@ -530,7 +530,7 @@ quadrantChart
 
 ```bash
 # Clone
-git clone https://github.com/Sudo-vishal/SudoVoice.git
+git clone https://github.com/Sudo-vishal/sudo-voice.git
 cd SudoVoice
 
 # Build + Deploy
@@ -554,7 +554,7 @@ First launch:
 ### Option B: Self-Host on Windows
 
 ```bash
-git clone https://github.com/Sudo-vishal/SudoVoice.git
+git clone https://github.com/Sudo-vishal/sudo-voice.git
 cd SudoVoice/windows
 npm install
 npm start          # run it
@@ -568,7 +568,7 @@ typed at the cursor. 100% offline.
 ### Option C: Self-Host on Android
 
 ```bash
-git clone https://github.com/Sudo-vishal/SudoVoice.git
+git clone https://github.com/Sudo-vishal/sudo-voice.git
 cd SudoVoice/android
 # Open in Android Studio → Build → Run
 # Enable "SudoVoice Voice" in Settings → Languages & Input
@@ -737,7 +737,7 @@ flowchart LR
 
 **Offline. Private. AI-powered.**
 
-[Website](https://sudovoice.com) · [GitHub](https://github.com/Sudo-vishal/SudoVoice) · [Twitter](https://twitter.com/aiwithvishal)
+[Website](https://sudovoice.com) · [GitHub](https://github.com/Sudo-vishal/sudo-voice) · [Twitter](https://twitter.com/aiwithvishal)
 
 ---
 
