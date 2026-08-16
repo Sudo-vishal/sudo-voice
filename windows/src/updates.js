@@ -9,7 +9,7 @@ const { spawn } = require("child_process");
 
 const MANIFEST_URLS = [
   "https://sudovoice.com/releases/latest-windows.json",
-  "https://raw.githubusercontent.com/Sudo-vishal/SudoVoice/main/website/public/releases/latest-windows.json",
+  "https://raw.githubusercontent.com/Sudo-vishal/sudo-voice/main/website/public/releases/latest-windows.json",
 ];
 
 function newer(a, b) {

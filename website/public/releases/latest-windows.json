@@ -2,7 +2,7 @@
   "version": "3.1.0",
   "minimumOS": "10",
   "releaseDate": "2026-08-16",
-  "downloadURL": "https://github.com/Sudo-vishal/SudoVoice/releases/latest/download/SudoVoice-Setup.exe",
+  "downloadURL": "https://github.com/Sudo-vishal/sudo-voice/releases/latest/download/SudoVoice-Setup.exe",
   "releaseNotes": "## SudoVoice v3.1.0 \u2014 the Windows power release\n\nThe Windows app catches up to the Mac app \u2014 and gets accounts.\n\n**Windows:**\n- **Text streams while you speak** \u2014 a persistent warm mic + voice-activity chunking + a resident whisper server mean words land at your cursor near-live instead of all at once when you release the key. Warm transcriptions run in ~0.5s.\n- **Sign in + Pro** \u2014 create an account with an email code, sync your dictation history, and unlock Pro across devices. Same account as the Mac app.\n- **Voice commands** \u2014 \"scratch that\", \"delete word\", \"select all\", \"press enter\", \"stop\".\n- **Smart punctuation** \u2014 say \"comma\", \"period\", \"question mark\", \"new line\".\n- **450ms stop-grace** \u2014 your last word is never clipped (parity with Mac).\n- **Real auto-update** \u2014 the app downloads the new installer, verifies its checksum, and installs. No more \"go to the website\".\n- **Insights** \u2014 words today, day streak, average WPM, weekly chart, and recent dictations, right in Settings. All local.\n- Smart lists in AI cleanup (spoken enumerations become bullet points).\n\n**Also:** the GitHub repo is now public \u2014 downloads work for everyone, and the full AGPL source is open.",
   "sha256": "b8e134df6a20ccbd644a271e4fe4c353cb6218c4de53381670d445e8fb54c82d"
 }
