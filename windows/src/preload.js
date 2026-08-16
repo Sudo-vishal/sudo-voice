@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("sudovoice", {
   whisperStatus: () => ipcRenderer.invoke("whisper:status"),
   whisperDownload: () => ipcRenderer.invoke("whisper:download"),
   onSetupProgress: (cb) => ipcRenderer.on("setup:progress", (_e, m) => cb(m)),
+  getInsights: () => ipcRenderer.invoke("insights:get"),
   appVersion: () => ipcRenderer.invoke("app:version"),
   checkUpdates: () => ipcRenderer.invoke("updates:check"),
   installUpdate: () => ipcRenderer.invoke("updates:install"),

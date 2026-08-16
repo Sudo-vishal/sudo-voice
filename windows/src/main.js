@@ -15,6 +15,7 @@ const cleanup = require("./cleanup");
 const updates = require("./updates");
 const hotkey = require("./hotkey");
 const supabase = require("./supabase");
+const insights = require("./insights");
 const commands = require("./commands");
 const punctuation = require("./punctuation");
 
@@ -211,6 +212,13 @@ ipcMain.on("rec:done", async (_evt, meta) => {
   const cleanupRan = cfg.cleanup.enabled && cfg.cleanup.apiKey;
   const rawText = s.raw.join(" ");
   const cleanedText = cleanupRan ? s.cleaned.join(" ") : null;
+  const finalText = cleanedText || rawText;
+  insights.record({
+    words: finalText.trim().split(/\s+/).filter(Boolean).length,
+    chars: finalText.length,
+    seconds: s.seconds,
+    preview: finalText.slice(0, 80),
+  });
   // Sync to cloud history when signed in (fire-and-forget).
   supabase.saveDictation({
     rawText,
@@ -251,6 +259,7 @@ ipcMain.handle("whisper:download", async () => {
   whisper.startServer(settings.get().model).catch(() => {});
   return whisper.status(settings.get().model);
 });
+ipcMain.handle("insights:get", () => insights.summary());
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("updates:check", () => updates.check(app.getVersion()));
 

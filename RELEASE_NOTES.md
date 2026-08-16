@@ -9,6 +9,7 @@ The Windows app catches up to the Mac app — and gets accounts.
 - **Smart punctuation** — say "comma", "period", "question mark", "new line".
 - **450ms stop-grace** — your last word is never clipped (parity with Mac).
 - **Real auto-update** — the app downloads the new installer, verifies its checksum, and installs. No more "go to the website".
+- **Insights** — words today, day streak, average WPM, weekly chart, and recent dictations, right in Settings. All local.
 - Smart lists in AI cleanup (spoken enumerations become bullet points).
 
 **Also:** the GitHub repo is now public — downloads work for everyone, and the full AGPL source is open.

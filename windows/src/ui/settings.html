@@ -36,11 +36,32 @@
   #status { color: var(--dim); font-size: 12px; min-height: 18px; margin-top: 8px; }
   .ok { color: var(--green); } .warn { color: #FFB74D; }
   .hint { color: var(--dim); font-size: 11px; margin-top: 4px; }
+  .stat { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .statN { color: var(--green); font-size: 18px; font-weight: 700; }
+  .statL { color: var(--dim); font-size: 10px; }
+  .bar { flex: 1; background: rgba(0,230,118,0.25); border-top: 2px solid var(--green); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .barL { flex: 1; text-align: center; color: var(--dim); font-size: 9px; }
+  .recentRow { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--text); padding: 3px 0; border-top: 1px solid rgba(255,255,255,0.04); }
+  .recentRow span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recentRow span:last-child { color: var(--dim); flex-shrink: 0; }
 </style>
 </head>
 <body>
   <h1>sudovoice</h1>
   <div class="sub">your voice, with root access — <span id="version"></span></div>
+
+  <div class="panel" id="insightsPanel" style="display:none">
+    <h2>insights</h2>
+    <div style="display:flex; gap:10px; margin-bottom:12px">
+      <div class="stat"><div class="statN" id="inToday">0</div><div class="statL">words today</div></div>
+      <div class="stat"><div class="statN" id="inStreak">0</div><div class="statL">day streak</div></div>
+      <div class="stat"><div class="statN" id="inWpm">0</div><div class="statL">avg wpm</div></div>
+      <div class="stat"><div class="statN" id="inTotal">0</div><div class="statL">total words</div></div>
+    </div>
+    <div id="inWeek" style="display:flex; gap:6px; align-items:flex-end; height:56px; margin-bottom:4px"></div>
+    <div id="inWeekLabels" style="display:flex; gap:6px"></div>
+    <div id="inRecent" style="margin-top:12px"></div>
+  </div>
 
   <div class="panel">
     <h2>hotkey</h2>
@@ -142,6 +163,27 @@
     $("launchAtLogin").checked = s.launchAtLogin;
     $("version").textContent = "v" + (await window.sudovoice.appVersion());
     refreshStatus();
+    loadInsights();
+  }
+
+  async function loadInsights() {
+    try {
+      const i = await window.sudovoice.getInsights();
+      if (!i || i.totalDictations === 0) return; // hide until first dictation
+      $("insightsPanel").style.display = "";
+      $("inToday").textContent = i.todayWords.toLocaleString();
+      $("inStreak").textContent = i.streak;
+      $("inWpm").textContent = i.wpm;
+      $("inTotal").textContent = i.totalWords.toLocaleString();
+      const max = Math.max(1, ...i.week.map((d) => d.words));
+      $("inWeek").innerHTML = i.week
+        .map((d) => `<div class="bar" title="${d.words} words" style="height:${Math.max(4, Math.round((d.words / max) * 100))}%"></div>`)
+        .join("");
+      $("inWeekLabels").innerHTML = i.week.map((d) => `<div class="barL">${d.day}</div>`).join("");
+      $("inRecent").innerHTML = i.recent
+        .map((r) => `<div class="recentRow"><span>${r.preview.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span><span>${r.words}w</span></div>`)
+        .join("");
+    } catch { /* insights are cosmetic — never block settings */ }
   }
 
   async function refreshStatus() {
